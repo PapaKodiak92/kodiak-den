@@ -111,14 +111,14 @@ function VisibilityBadge({ visibility }: { visibility: Visibility }) {
 
 function Avatar({ profile, size = "md" }: { profile: Profile; size?: "sm" | "md" | "lg" }) {
   const sizeClasses = {
-    sm: "h-12 w-12 rounded-2xl text-2xl",
-    md: "h-16 w-16 rounded-3xl text-3xl",
-    lg: "h-28 w-28 rounded-[2rem] text-5xl",
+    sm: "h-12 w-12 rounded-2xl text-sm",
+    md: "h-16 w-16 rounded-3xl text-base",
+    lg: "h-28 w-28 rounded-[2rem] text-2xl",
   }[size];
 
   return (
     <div
-      className={`grid shrink-0 place-items-center overflow-hidden border border-amber-500/20 bg-amber-500/10 shadow-2xl shadow-black/40 ring-4 ring-zinc-950 ${sizeClasses}`}
+      className={`grid shrink-0 place-items-center overflow-hidden border border-amber-500/30 bg-amber-500/10 font-black tracking-tight text-amber-300 shadow-2xl shadow-black/40 ring-4 ring-[#050608] ${sizeClasses}`}
     >
       {profile.avatarImage ? (
         <img
@@ -127,7 +127,7 @@ function Avatar({ profile, size = "md" }: { profile: Profile; size?: "sm" | "md"
           className="h-full w-full object-cover"
         />
       ) : (
-        <span aria-hidden="true">🐾</span>
+        <span aria-hidden="true">KD</span>
       )}
     </div>
   );
@@ -460,16 +460,16 @@ export default function MyDenPage() {
         <section className="space-y-5">
           <header className="overflow-hidden rounded-[2rem] border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/30">
             <div
-              className={`h-52 bg-cover bg-center ${profile.bannerImage ? "" : bannerStyles[profile.bannerStyle]}`}
+              className={`h-60 bg-cover bg-center ${profile.bannerImage ? "" : bannerStyles[profile.bannerStyle]}`}
               style={bannerBackgroundStyle}
             />
 
-            <div className="px-6 pb-6 sm:px-8 sm:pb-8">
-              <div className="-mt-14 flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">
+            <div className="px-6 pb-8 sm:px-8 sm:pb-9">
+              <div className="-mt-8 flex flex-col justify-between gap-7 sm:flex-row sm:items-end">
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:gap-5">
                   <Avatar profile={profile} size="lg" />
 
-                  <div className="pb-1 sm:pb-3">
+                  <div className="pb-2 sm:pb-4">
                     <p className="text-4xl font-black tracking-tight">{profile.displayName}</p>
                     <p className="mt-1 text-sm font-bold text-zinc-500">{profile.handle}</p>
                   </div>
@@ -483,7 +483,7 @@ export default function MyDenPage() {
                 </button>
               </div>
 
-              <p className="mt-6 max-w-2xl whitespace-pre-wrap text-sm leading-6 text-zinc-400">
+              <p className="mt-8 max-w-2xl whitespace-pre-wrap text-sm leading-6 text-zinc-400">
                 {profile.bio}
               </p>
 
@@ -702,7 +702,7 @@ export default function MyDenPage() {
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
                 <button
                   onClick={cancelProfileEdit}
-                  className="rounded-2xl border border-zinc-800 px-5 py-3 text-sm font-black text-zinc-300 transition hover:border-zinc-600"
+                  className="rounded-2xl border border-zinc-800 px-5 py-3 text-sm font-bold text-zinc-300 transition hover:border-zinc-600"
                 >
                   Discard
                 </button>
@@ -716,156 +716,154 @@ export default function MyDenPage() {
             </section>
           ) : null}
 
-          <section className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
-            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <section className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-6">
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
               <div>
                 <p className="text-sm font-black uppercase tracking-[0.3em] text-amber-400">My Roars</p>
-                <h2 className="mt-2 text-2xl font-black">Everything you have posted locally.</h2>
+                <h1 className="mt-3 text-2xl font-black leading-tight sm:text-3xl">
+                  Everything you have posted locally.
+                </h1>
               </div>
 
               <Link
                 href="/den"
-                className="rounded-full bg-amber-500 px-5 py-2 text-center text-sm font-black text-zinc-950 transition hover:bg-amber-400"
+                className="rounded-3xl bg-amber-500 px-8 py-4 text-center text-sm font-black text-zinc-950 transition hover:bg-amber-400"
               >
                 Create a Roar
               </Link>
             </div>
           </section>
 
-          {!isLoaded || roars.length === 0 ? (
-            <section className="rounded-[2rem] border border-dashed border-zinc-800 bg-zinc-950/70 p-8 text-center">
-              <div className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-amber-500/10 text-3xl ring-1 ring-amber-500/20">
-                🐻
-              </div>
-              <h2 className="mt-5 text-2xl font-black">Your Den is quiet.</h2>
-              <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-zinc-500">
-                Your profile starts empty. Post your first Roar on The Trail and it will show up here.
+          {roars.length === 0 ? (
+            <section className="rounded-[2rem] border border-dashed border-zinc-800 bg-zinc-950/70 p-10 text-center">
+              <h2 className="text-2xl font-black">Your Den is quiet.</h2>
+              <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-zinc-500">
+                Your local Roars will show here after you post from The Trail.
               </p>
-              <Link
-                href="/den"
-                className="mt-5 inline-flex rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-400"
-              >
-                Go to The Trail
-              </Link>
             </section>
           ) : (
-            <div className="space-y-5">
-              {roars.map((roar) => {
-                const isEditing = editingRoarId === roar.id;
+            <div className="space-y-4">
+              {roars.map((roar) => (
+                <article
+                  key={roar.id}
+                  className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar profile={profile} size="sm" />
+                      <div>
+                        <p className="font-black">
+                          {profile.displayName}{" "}
+                          <span className="font-medium text-zinc-500">{profile.handle}</span>{" "}
+                          <span className="font-medium text-zinc-600">- {roar.time}</span>
+                          {roar.editedAt ? (
+                            <span className="font-medium text-zinc-600"> - edited {roar.editedAt}</span>
+                          ) : null}
+                        </p>
+                      </div>
+                    </div>
 
-                return (
-                  <article key={roar.id} className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-3">
-                        <Avatar profile={profile} size="sm" />
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-black">{profile.displayName}</p>
-                            <p className="text-sm text-zinc-500">{profile.handle}</p>
-                            <p className="text-sm text-zinc-600">· {roar.time}</p>
-                            {roar.editedAt ? (
-                              <p className="text-sm text-zinc-600">· edited {roar.editedAt}</p>
-                            ) : null}
-                          </div>
-                          <div className="mt-3">
-                            <VisibilityBadge visibility={roar.visibility} />
-                          </div>
-                        </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => startEditingRoar(roar)}
+                        className="rounded-full border border-zinc-800 px-3 py-1 text-xs font-bold text-zinc-400 transition hover:border-amber-500/50 hover:text-amber-300"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => deleteRoar(roar.id)}
+                        className="rounded-full border border-zinc-800 px-3 py-1 text-xs font-bold text-zinc-400 transition hover:border-red-500/50 hover:text-red-300"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <VisibilityBadge visibility={roar.visibility} />
+                  </div>
+
+                  {editingRoarId === roar.id ? (
+                    <div className="mt-5 rounded-3xl border border-amber-500/20 bg-amber-500/10 p-4">
+                      <textarea
+                        value={editDraft}
+                        onChange={(event) => setEditDraft(event.target.value)}
+                        rows={4}
+                        className="w-full resize-none rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-bold leading-6 text-zinc-100 outline-none transition focus:border-amber-500"
+                      />
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(["Public", "Pack", "Inner Den"] as Visibility[]).map((visibility) => (
+                          <button
+                            key={visibility}
+                            onClick={() => setEditVisibility(visibility)}
+                            className={
+                              editVisibility === visibility
+                                ? "rounded-full border border-amber-500/50 bg-amber-500/20 px-4 py-2 text-xs font-black text-amber-300"
+                                : "rounded-full border border-zinc-800 px-4 py-2 text-xs font-bold text-zinc-400 hover:border-amber-500/40 hover:text-amber-300"
+                            }
+                          >
+                            {visibility}
+                          </button>
+                        ))}
                       </div>
 
-                      {!isEditing ? (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => startEditingRoar(roar)}
-                            className="rounded-full border border-zinc-800 px-3 py-1 text-xs font-black text-zinc-500 transition hover:border-amber-500/40 hover:text-amber-300"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => deleteRoar(roar.id)}
-                            className="rounded-full border border-zinc-800 px-3 py-1 text-xs font-black text-zinc-500 transition hover:border-red-500/50 hover:text-red-300"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      ) : null}
+                      <div className="mt-4 flex flex-wrap justify-end gap-2">
+                        <button
+                          onClick={cancelEditingRoar}
+                          className="rounded-2xl border border-zinc-800 px-4 py-2 text-sm font-bold text-zinc-400 transition hover:border-zinc-600"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => saveRoarEdit(roar.id)}
+                          disabled={!editDraft.trim()}
+                          className="rounded-2xl bg-amber-500 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+                        >
+                          Save Roar
+                        </button>
+                      </div>
                     </div>
+                  ) : (
+                    <p className="mt-6 whitespace-pre-wrap text-lg font-bold leading-8">{roar.text}</p>
+                  )}
 
-                    {isEditing ? (
-                      <section className="mt-5 rounded-3xl border border-amber-500/20 bg-amber-500/10 p-4">
-                        <textarea
-                          value={editDraft}
-                          onChange={(event) => setEditDraft(event.target.value)}
-                          className="min-h-28 w-full resize-none rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-sm font-medium text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500"
-                        />
-                        <div className="mt-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                          <div className="flex flex-wrap gap-2">
-                            {(["Public", "Pack", "Inner Den"] as Visibility[]).map((option) => (
-                              <button
-                                key={option}
-                                onClick={() => setEditVisibility(option)}
-                                className={
-                                  option === editVisibility
-                                    ? "rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-300"
-                                    : "rounded-full border border-zinc-800 px-3 py-1 text-xs font-bold text-zinc-400 transition hover:border-amber-500/40 hover:text-amber-300"
-                                }
-                              >
-                                {option}
-                              </button>
-                            ))}
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={cancelEditingRoar}
-                              className="rounded-2xl border border-zinc-800 px-5 py-3 text-sm font-black text-zinc-300 transition hover:border-zinc-600"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={() => saveRoarEdit(roar.id)}
-                              disabled={editDraft.trim().length === 0}
-                              className="rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
-                            >
-                              Save Roar
-                            </button>
-                          </div>
-                        </div>
-                      </section>
-                    ) : (
-                      <p className="mt-5 whitespace-pre-wrap text-lg font-semibold leading-8 text-zinc-100">{roar.text}</p>
-                    )}
-
-                    <div className="mt-5 flex flex-wrap gap-3 text-sm font-black text-zinc-400">
-                      <span className="rounded-full border border-zinc-800 px-4 py-2">🐾↑ {roar.pawsUp} Paws Up</span>
-                      <span className="rounded-full border border-zinc-800 px-4 py-2">🐾↓ {roar.pawsDown} Paws Down</span>
-                      <span className="rounded-full border border-zinc-800 px-4 py-2">💬 {roar.comments.length} Comments</span>
-                    </div>
-                  </article>
-                );
-              })}
+                  <div className="mt-6 flex flex-wrap gap-3 text-sm font-black text-zinc-400">
+                    <span className="rounded-full border border-zinc-800 px-5 py-2">
+                      {roar.pawsUp} Paws Up
+                    </span>
+                    <span className="rounded-full border border-zinc-800 px-5 py-2">
+                      {roar.pawsDown} Paws Down
+                    </span>
+                    <span className="rounded-full border border-zinc-800 px-5 py-2">
+                      {roar.comments.length} Comments
+                    </span>
+                  </div>
+                </article>
+              ))}
             </div>
           )}
         </section>
 
         <aside className="hidden xl:block">
           <div className="sticky top-6 space-y-5">
-            <section className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
-              <h2 className="text-lg font-black">Profile Privacy</h2>
-              <p className="mt-1 text-sm leading-6 text-zinc-500">
+            <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+              <h2 className="text-xl font-black">Profile Privacy</h2>
+              <p className="mt-3 text-sm leading-6 text-zinc-500">
                 Your Den should show only what you choose to share.
               </p>
-              <div className="mt-4 space-y-3 text-sm font-bold text-zinc-300">
-                <p>✓ Profile visibility: {profile.profileVisibility}</p>
-                <p>✓ Avatar and banner stay local for now</p>
-                <p>✓ Roars keep their visibility labels</p>
-                <p>✓ Edit/delete your local Roars</p>
-                <p>✓ Paws Up and Paws Down stay local for now</p>
+              <div className="mt-5 grid gap-3 text-sm font-bold text-zinc-100">
+                <p>OK Profile visibility: {profile.profileVisibility}</p>
+                <p>OK Avatar and banner stay local for now</p>
+                <p>OK Roars keep their visibility labels</p>
+                <p>OK Edit/delete your local Roars</p>
+                <p>OK Paws Up and Paws Down stay local for now</p>
               </div>
             </section>
 
-            <section className="rounded-[2rem] border border-amber-500/20 bg-amber-500/10 p-5">
-              <h2 className="text-lg font-black text-amber-300">Coming Next</h2>
-              <div className="mt-4 space-y-3 text-sm font-bold text-zinc-300">
+            <section className="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-5">
+              <h2 className="text-xl font-black text-amber-300">Coming Next</h2>
+              <div className="mt-5 grid gap-3 text-sm font-bold text-zinc-100">
                 <p>Pack page</p>
                 <p>Inner Den controls</p>
                 <p>Real account storage</p>
