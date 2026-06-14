@@ -2,37 +2,18 @@ import Image from "next/image";
 import Link from "next/link";
 import kodiakDenLogo from "../../assets/kodiak-den-logo.png";
 
-const roars = [
-  {
-    author: "Kodiak",
-    handle: "@kodiak",
-    time: "just now",
-    visibility: "Public",
-    text: "Welcome to The Trail. Chronological, calm, private by default, and built for your Pack instead of an algorithm.",
-    pawprints: 128,
-    comments: 24,
-  },
-  {
-    author: "Mara Stone",
-    handle: "@mara",
-    time: "12m",
-    visibility: "Pack",
-    text: "The visibility badge before posting is exactly what social media should have had from day one.",
-    pawprints: 42,
-    comments: 8,
-  },
-  {
-    author: "River Hale",
-    handle: "@river",
-    time: "29m",
-    visibility: "Inner Den",
-    text: "No rage bait feed. No creepy tracking. Just people I actually care about. That is the move.",
-    pawprints: 61,
-    comments: 13,
-  },
-];
+type Roar = {
+  author: string;
+  handle: string;
+  time: string;
+  visibility: string;
+  text: string;
+  pawprints: number;
+  comments: number;
+};
 
-const pack = ["Kodiak", "Mara Stone", "River Hale", "Ash Wilder"];
+const roars: Roar[] = [];
+const pack: string[] = [];
 
 function KodiakBrand() {
   return (
@@ -68,6 +49,25 @@ function VisibilityBadge({ visibility }: { visibility: string }) {
     <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-300">
       {label}
     </span>
+  );
+}
+
+function EmptyTrail() {
+  return (
+    <section className="rounded-[2rem] border border-dashed border-zinc-800 bg-zinc-950/70 p-8 text-center">
+      <div className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-amber-500/10 text-3xl ring-1 ring-amber-500/20">
+        🐾
+      </div>
+      <h2 className="mt-5 text-2xl font-black">Your Trail is quiet.</h2>
+      <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-zinc-500">
+        No Roars yet. Your chronological feed starts empty until you post or add people to your Pack.
+      </p>
+      <div className="mt-5 flex flex-wrap justify-center gap-2 text-xs font-black text-zinc-500">
+        <span className="rounded-full border border-zinc-800 px-3 py-1">No algorithm</span>
+        <span className="rounded-full border border-zinc-800 px-3 py-1">No fake demo feed</span>
+        <span className="rounded-full border border-zinc-800 px-3 py-1">No tracking</span>
+      </div>
+    </section>
   );
 }
 
@@ -141,41 +141,45 @@ export default function DenPage() {
             </div>
           </section>
 
-          {roars.map((roar) => (
-            <article key={`${roar.handle}-${roar.time}`} className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-zinc-900 text-xl ring-1 ring-zinc-800">
-                    🐻
-                  </div>
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-black">{roar.author}</p>
-                      <p className="text-sm text-zinc-500">{roar.handle}</p>
-                      <p className="text-sm text-zinc-600">· {roar.time}</p>
+          {roars.length === 0 ? (
+            <EmptyTrail />
+          ) : (
+            roars.map((roar) => (
+              <article key={`${roar.handle}-${roar.time}`} className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="grid h-12 w-12 place-items-center rounded-2xl bg-zinc-900 text-xl ring-1 ring-zinc-800">
+                      🐻
                     </div>
-                    <div className="mt-2">
-                      <VisibilityBadge visibility={roar.visibility} />
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-black">{roar.author}</p>
+                        <p className="text-sm text-zinc-500">{roar.handle}</p>
+                        <p className="text-sm text-zinc-600">· {roar.time}</p>
+                      </div>
+                      <div className="mt-2">
+                        <VisibilityBadge visibility={roar.visibility} />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <p className="mt-5 text-lg font-semibold leading-8 text-zinc-100">{roar.text}</p>
+                <p className="mt-5 text-lg font-semibold leading-8 text-zinc-100">{roar.text}</p>
 
-              <div className="mt-5 flex flex-wrap gap-3 text-sm font-black text-zinc-400">
-                <button className="rounded-full border border-zinc-800 px-4 py-2 transition hover:border-amber-500 hover:text-amber-300">
-                  🐾 {roar.pawprints} Pawprints
-                </button>
-                <button className="rounded-full border border-zinc-800 px-4 py-2 transition hover:border-amber-500 hover:text-amber-300">
-                  💬 {roar.comments} Comments
-                </button>
-                <button className="rounded-full border border-zinc-800 px-4 py-2 transition hover:border-amber-500 hover:text-amber-300">
-                  Share
-                </button>
-              </div>
-            </article>
-          ))}
+                <div className="mt-5 flex flex-wrap gap-3 text-sm font-black text-zinc-400">
+                  <button className="rounded-full border border-zinc-800 px-4 py-2 transition hover:border-amber-500 hover:text-amber-300">
+                    🐾 {roar.pawprints} Pawprints
+                  </button>
+                  <button className="rounded-full border border-zinc-800 px-4 py-2 transition hover:border-amber-500 hover:text-amber-300">
+                    💬 {roar.comments} Comments
+                  </button>
+                  <button className="rounded-full border border-zinc-800 px-4 py-2 transition hover:border-amber-500 hover:text-amber-300">
+                    Share
+                  </button>
+                </div>
+              </article>
+            ))
+          )}
         </section>
 
         <aside className="hidden xl:block">
@@ -185,15 +189,21 @@ export default function DenPage() {
               <p className="mt-1 text-sm text-zinc-500">People you trust on The Trail.</p>
 
               <div className="mt-4 space-y-3">
-                {pack.map((member) => (
-                  <div key={member} className="flex items-center justify-between rounded-2xl bg-zinc-900 px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/10 text-sm ring-1 ring-amber-500/20">🐾</div>
-                      <p className="text-sm font-bold">{member}</p>
-                    </div>
-                    <span className="text-xs font-bold text-amber-300">Pack</span>
+                {pack.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/50 p-4 text-sm font-bold leading-6 text-zinc-500">
+                    Your Pack is empty. Add people later to see their Roars here.
                   </div>
-                ))}
+                ) : (
+                  pack.map((member) => (
+                    <div key={member} className="flex items-center justify-between rounded-2xl bg-zinc-900 px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/10 text-sm ring-1 ring-amber-500/20">🐾</div>
+                        <p className="text-sm font-bold">{member}</p>
+                      </div>
+                      <span className="text-xs font-bold text-amber-300">Pack</span>
+                    </div>
+                  ))
+                )}
               </div>
             </section>
 
