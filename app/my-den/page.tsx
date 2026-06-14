@@ -2,13 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import kodiakDenLogo from "../../assets/kodiak-den-logo.png";
 
 type Visibility = "Public" | "Pack" | "Inner Den";
 type ProfileVisibility = "Public" | "Pack only" | "Private";
 type BannerStyle = "Kodiak Gold" | "Midnight Den" | "Pine Ridge";
 type RoarReaction = "up" | "down" | null;
+type ProfileImageField = "avatarImage" | "bannerImage";
 
 type RoarComment = {
   id: string;
@@ -38,10 +39,13 @@ type Profile = {
   bio: string;
   bannerStyle: BannerStyle;
   profileVisibility: ProfileVisibility;
+  avatarImage: string | null;
+  bannerImage: string | null;
 };
 
 const roarsStorageKey = "kodiak-den-local-roars";
 const profileStorageKey = "kodiak-den-local-profile";
+const maxLocalImageBytes = 2.5 * 1024 * 1024;
 
 const defaultProfile: Profile = {
   displayName: "Kodiak",
@@ -49,6 +53,8 @@ const defaultProfile: Profile = {
   bio: "Building Kodiak Den: a private corner of the internet for Roars, Pack, and quiet social connection without a creepy algorithm.",
   bannerStyle: "Kodiak Gold",
   profileVisibility: "Public",
+  avatarImage: null,
+  bannerImage: null,
 };
 
 const bannerStyles: Record<BannerStyle, string> = {
@@ -103,6 +109,30 @@ function VisibilityBadge({ visibility }: { visibility: Visibility }) {
   );
 }
 
+function Avatar({ profile, size = "md" }: { profile: Profile; size?: "sm" | "md" | "lg" }) {
+  const sizeClasses = {
+    sm: "h-12 w-12 rounded-2xl text-2xl",
+    md: "h-16 w-16 rounded-3xl text-3xl",
+    lg: "h-28 w-28 rounded-[2rem] text-5xl",
+  }[size];
+
+  return (
+    <div
+      className={`grid shrink-0 place-items-center overflow-hidden border border-amber-500/20 bg-amber-500/10 shadow-2xl shadow-black/40 ring-4 ring-zinc-950 ${sizeClasses}`}
+    >
+      {profile.avatarImage ? (
+        <img
+          src={profile.avatarImage}
+          alt={`${profile.displayName} profile avatar`}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <span aria-hidden="true">🐾</span>
+      )}
+    </div>
+  );
+}
+
 function formatLocalTime() {
   return new Intl.DateTimeFormat("en", {
     hour: "numeric",
@@ -122,6 +152,10 @@ function normalizeHandle(value: string) {
   }
 
   return cleaned.startsWith("@") ? cleaned : `@${cleaned}`;
+}
+
+function normalizeImage(value: unknown) {
+  return typeof value === "string" && value.startsWith("data:image/") ? value : null;
 }
 
 function normalizeStoredProfile(rawProfile: unknown): Profile {
@@ -154,6 +188,8 @@ function normalizeStoredProfile(rawProfile: unknown): Profile {
       storedProfile.profileVisibility === "Public"
         ? storedProfile.profileVisibility
         : defaultProfile.profileVisibility,
+    avatarImage: normalizeImage(storedProfile.avatarImage),
+    bannerImage: normalizeImage(storedProfile.bannerImage),
   };
 }
 
@@ -205,6 +241,23 @@ function normalizeStoredRoars(rawRoars: unknown): Roar[] {
       };
     })
     .filter((roar) => roar.text.trim().length > 0);
+}
+
+function readImageAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("Image could not be read."));
+      }
+    };
+
+    reader.onerror = () => reject(new Error("Image could not be read."));
+    reader.readAsDataURL(file);
+  });
 }
 
 export default function MyDenPage() {
@@ -285,6 +338,45 @@ export default function MyDenPage() {
     setIsEditingProfile(false);
   }
 
+  async function handleProfileImageUpload(
+    field: ProfileImageField,
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      window.alert("Choose an image file for your Den.");
+      return;
+    }
+
+    if (file.size > maxLocalImageBytes) {
+      window.alert("That image is too big for local mock storage. Keep it under 2.5 MB for now.");
+      return;
+    }
+
+    try {
+      const imageData = await readImageAsDataUrl(file);
+      setDraftProfile((current) => ({
+        ...current,
+        [field]: imageData,
+      }));
+    } catch {
+      window.alert("Could not read that image. Try another one.");
+    }
+  }
+
+  function removeProfileImage(field: ProfileImageField) {
+    setDraftProfile((current) => ({
+      ...current,
+      [field]: null,
+    }));
+  }
+
   function startEditingRoar(roar: Roar) {
     setEditingRoarId(roar.id);
     setEditDraft(roar.text);
@@ -334,6 +426,12 @@ export default function MyDenPage() {
     }
   }
 
+  const bannerBackgroundStyle = profile.bannerImage
+    ? {
+        backgroundImage: `linear-gradient(135deg, rgba(5,6,8,0.15), rgba(5,6,8,0.62)), url(${profile.bannerImage})`,
+      }
+    : undefined;
+
   return (
     <main className="min-h-screen bg-[#050608] text-zinc-100">
       <div className="mx-auto grid w-full max-w-7xl gap-6 px-6 py-6 lg:grid-cols-[240px_1fr_320px]">
@@ -361,30 +459,31 @@ export default function MyDenPage() {
 
         <section className="space-y-5">
           <header className="overflow-hidden rounded-[2rem] border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/30">
-            <div className={`h-36 ${bannerStyles[profile.bannerStyle]}`} />
+            <div
+              className={`h-52 bg-cover bg-center ${profile.bannerImage ? "" : bannerStyles[profile.bannerStyle]}`}
+              style={bannerBackgroundStyle}
+            />
 
-            <div className="p-5 pt-0">
-              <div className="-mt-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-                <div className="flex items-end gap-4">
-                  <div className="grid h-24 w-24 place-items-center rounded-[2rem] border-4 border-zinc-950 bg-amber-500/10 text-5xl shadow-2xl shadow-black/50 ring-1 ring-amber-500/20">
-                    🐾
-                  </div>
+            <div className="px-6 pb-6 sm:px-8 sm:pb-8">
+              <div className="-mt-14 flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">
+                  <Avatar profile={profile} size="lg" />
 
-                  <div className="pb-2">
-                    <p className="text-3xl font-black tracking-tight">{profile.displayName}</p>
-                    <p className="text-sm font-bold text-zinc-500">{profile.handle}</p>
+                  <div className="pb-1 sm:pb-3">
+                    <p className="text-4xl font-black tracking-tight">{profile.displayName}</p>
+                    <p className="mt-1 text-sm font-bold text-zinc-500">{profile.handle}</p>
                   </div>
                 </div>
 
                 <button
                   onClick={openProfileEditor}
-                  className="rounded-full border border-zinc-800 px-5 py-2 text-sm font-bold text-zinc-300 transition hover:border-amber-500 hover:text-amber-300"
+                  className="w-fit rounded-full border border-zinc-800 px-5 py-2 text-sm font-bold text-zinc-300 transition hover:border-amber-500 hover:text-amber-300"
                 >
                   Edit Profile
                 </button>
               </div>
 
-              <p className="mt-5 max-w-2xl whitespace-pre-wrap text-sm leading-6 text-zinc-400">
+              <p className="mt-6 max-w-2xl whitespace-pre-wrap text-sm leading-6 text-zinc-400">
                 {profile.bio}
               </p>
 
@@ -393,11 +492,14 @@ export default function MyDenPage() {
                   Profile: {profile.profileVisibility}
                 </span>
                 <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-amber-300">
-                  {profile.bannerStyle}
+                  {profile.bannerImage ? "Custom banner" : profile.bannerStyle}
+                </span>
+                <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-purple-200">
+                  {profile.avatarImage ? "Custom avatar" : "Default avatar"}
                 </span>
               </div>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-4">
+              <div className="mt-6 grid gap-3 sm:grid-cols-4">
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
                   <p className="text-2xl font-black text-amber-300">{stats.roars}</p>
                   <p className="mt-1 text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Roars</p>
@@ -427,8 +529,7 @@ export default function MyDenPage() {
                   </p>
                   <h2 className="mt-2 text-2xl font-black">Shape your Den.</h2>
                   <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-400">
-                    These changes are local to this browser for now. Later this becomes your real
-                    account profile.
+                    Uploads stay inside this browser for now. Real account storage comes later.
                   </p>
                 </div>
 
@@ -441,6 +542,67 @@ export default function MyDenPage() {
               </div>
 
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <section className="rounded-3xl border border-zinc-800 bg-zinc-950/70 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">Profile picture</p>
+                  <div className="mt-4 flex items-center gap-4">
+                    <Avatar profile={draftProfile} size="md" />
+                    <div className="space-y-2">
+                      <label className="inline-flex cursor-pointer rounded-2xl bg-amber-500 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-400">
+                        Upload avatar
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(event) => handleProfileImageUpload("avatarImage", event)}
+                          className="hidden"
+                        />
+                      </label>
+                      {draftProfile.avatarImage ? (
+                        <button
+                          onClick={() => removeProfileImage("avatarImage")}
+                          className="block rounded-2xl border border-zinc-800 px-4 py-2 text-sm font-bold text-zinc-400 transition hover:border-red-500/50 hover:text-red-300"
+                        >
+                          Remove avatar
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </section>
+
+                <section className="rounded-3xl border border-zinc-800 bg-zinc-950/70 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">Banner image</p>
+                  <div
+                    className={`mt-4 h-24 rounded-2xl border border-zinc-800 bg-cover bg-center ${
+                      draftProfile.bannerImage ? "" : bannerStyles[draftProfile.bannerStyle]
+                    }`}
+                    style={
+                      draftProfile.bannerImage
+                        ? {
+                            backgroundImage: `linear-gradient(135deg, rgba(5,6,8,0.08), rgba(5,6,8,0.58)), url(${draftProfile.bannerImage})`,
+                          }
+                        : undefined
+                    }
+                  />
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <label className="inline-flex cursor-pointer rounded-2xl bg-amber-500 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-400">
+                      Upload banner
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => handleProfileImageUpload("bannerImage", event)}
+                        className="hidden"
+                      />
+                    </label>
+                    {draftProfile.bannerImage ? (
+                      <button
+                        onClick={() => removeProfileImage("bannerImage")}
+                        className="rounded-2xl border border-zinc-800 px-4 py-2 text-sm font-bold text-zinc-400 transition hover:border-red-500/50 hover:text-red-300"
+                      >
+                        Remove banner
+                      </button>
+                    ) : null}
+                  </div>
+                </section>
+
                 <label className="space-y-2">
                   <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
                     Display name
@@ -498,7 +660,7 @@ export default function MyDenPage() {
 
                 <label className="space-y-2">
                   <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
-                    Banner style
+                    Banner fallback style
                   </span>
                   <select
                     value={draftProfile.bannerStyle}
@@ -594,17 +756,20 @@ export default function MyDenPage() {
                 return (
                   <article key={roar.id} className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
                     <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-black">{profile.displayName}</p>
-                          <p className="text-sm text-zinc-500">{profile.handle}</p>
-                          <p className="text-sm text-zinc-600">· {roar.time}</p>
-                          {roar.editedAt ? (
-                            <p className="text-sm text-zinc-600">· edited {roar.editedAt}</p>
-                          ) : null}
-                        </div>
-                        <div className="mt-3">
-                          <VisibilityBadge visibility={roar.visibility} />
+                      <div className="flex items-start gap-3">
+                        <Avatar profile={profile} size="sm" />
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-black">{profile.displayName}</p>
+                            <p className="text-sm text-zinc-500">{profile.handle}</p>
+                            <p className="text-sm text-zinc-600">· {roar.time}</p>
+                            {roar.editedAt ? (
+                              <p className="text-sm text-zinc-600">· edited {roar.editedAt}</p>
+                            ) : null}
+                          </div>
+                          <div className="mt-3">
+                            <VisibilityBadge visibility={roar.visibility} />
+                          </div>
                         </div>
                       </div>
 
@@ -691,6 +856,7 @@ export default function MyDenPage() {
               </p>
               <div className="mt-4 space-y-3 text-sm font-bold text-zinc-300">
                 <p>✓ Profile visibility: {profile.profileVisibility}</p>
+                <p>✓ Avatar and banner stay local for now</p>
                 <p>✓ Roars keep their visibility labels</p>
                 <p>✓ Edit/delete your local Roars</p>
                 <p>✓ Paws Up and Paws Down stay local for now</p>
@@ -700,10 +866,10 @@ export default function MyDenPage() {
             <section className="rounded-[2rem] border border-amber-500/20 bg-amber-500/10 p-5">
               <h2 className="text-lg font-black text-amber-300">Coming Next</h2>
               <div className="mt-4 space-y-3 text-sm font-bold text-zinc-300">
-                <p>Profile avatar upload</p>
-                <p>Banner image upload</p>
                 <p>Pack page</p>
+                <p>Inner Den controls</p>
                 <p>Real account storage</p>
+                <p>Export/delete profile package</p>
               </div>
             </section>
           </div>
