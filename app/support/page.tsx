@@ -2,16 +2,16 @@ import Link from "next/link";
 
 const supportOptions = [
   {
-    title: "Follow the build",
-    description: "Keep up with Kodiak Den as the platform grows into a real privacy-first social home.",
+    title: "Account help",
+    description: "Get help with signing in, profile settings, your Den, or anything that feels stuck.",
   },
   {
-    title: "Share feedback",
-    description: "Tell us what matters most for profiles, The Trail, Pack features, safety, and community tools.",
+    title: "Safety and reports",
+    description: "Report harassment, spam, abuse, impersonation, or anything that does not belong on Kodiak Den.",
   },
   {
-    title: "Spread the word",
-    description: "Invite people who want a quieter, cleaner social platform built around trust instead of tracking.",
+    title: "Feedback",
+    description: "Share ideas, bugs, and feature requests as Kodiak Den grows into a better social home.",
   },
 ];
 
@@ -33,14 +33,15 @@ export default function SupportPage() {
 
         <section className="mt-12 rounded-[2rem] border border-zinc-800 bg-zinc-950 p-6 sm:p-8">
           <p className="text-sm font-black uppercase tracking-[0.35em] text-amber-400">
-            Support
+            Need Support?
           </p>
           <h1 className="mt-4 max-w-3xl text-5xl font-black leading-tight tracking-tight">
-            Help build a better social space.
+            Help for your Den, account, and safety.
           </h1>
           <p className="mt-5 max-w-3xl text-lg leading-8 text-zinc-300">
-            Kodiak Den is being built as a privacy-first social platform for
-            profiles, Roars, comments, Pack circles, and community connection.
+            This is the place for account help, safety reports, questions, and
+            feedback. The contact link will be connected when Kodiak Den is ready
+            for public support requests.
           </p>
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">
@@ -57,12 +58,15 @@ export default function SupportPage() {
             ))}
           </div>
 
-          <div className="mt-8 rounded-3xl border border-amber-500/30 bg-amber-500/10 p-5">
-            <h2 className="text-2xl font-black">Official support link coming soon.</h2>
+          <div className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900/60 p-5">
+            <h2 className="text-2xl font-black">Contact support</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
-              This page is ready for the official Kodiak Den support link when
-              it is time to connect it.
+              A real support link will go here later. For now, this page gives
+              the site a proper home for help, safety, and feedback.
             </p>
+            <button className="mt-5 rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-400">
+              Contact Support
+            </button>
           </div>
         </section>
       </section>
