@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import kodiakDenLogo from "../../assets/kodiak-den-logo.png";
 
 type Visibility = "Public" | "Pack" | "Inner Den";
+type ProfileVisibility = "Public" | "Pack only" | "Private";
+type BannerStyle = "Kodiak Gold" | "Midnight Den" | "Pine Ridge";
 
 type RoarComment = {
   id: string;
@@ -27,7 +29,33 @@ type Roar = {
   hasPawprinted: boolean;
 };
 
-const storageKey = "kodiak-den-local-roars";
+type Profile = {
+  displayName: string;
+  handle: string;
+  bio: string;
+  bannerStyle: BannerStyle;
+  profileVisibility: ProfileVisibility;
+};
+
+const roarsStorageKey = "kodiak-den-local-roars";
+const profileStorageKey = "kodiak-den-local-profile";
+
+const defaultProfile: Profile = {
+  displayName: "Kodiak",
+  handle: "@kodiak",
+  bio: "Building Kodiak Den: a private corner of the internet for Roars, Pack, and quiet social connection without a creepy algorithm.",
+  bannerStyle: "Kodiak Gold",
+  profileVisibility: "Public",
+};
+
+const bannerStyles: Record<BannerStyle, string> = {
+  "Kodiak Gold":
+    "bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.36),_transparent_34%),linear-gradient(135deg,_rgba(245,158,11,0.22),_rgba(24,24,27,0.45),_rgba(5,6,8,1))]",
+  "Midnight Den":
+    "bg-[radial-gradient(circle_at_top_left,_rgba(113,113,122,0.28),_transparent_34%),linear-gradient(135deg,_rgba(39,39,42,0.92),_rgba(9,9,11,1),_rgba(5,6,8,1))]",
+  "Pine Ridge":
+    "bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.18),_transparent_34%),linear-gradient(135deg,_rgba(20,83,45,0.55),_rgba(24,24,27,0.55),_rgba(5,6,8,1))]",
+};
 
 const navItems = [
   { label: "The Trail", href: "/den" },
@@ -72,6 +100,53 @@ function VisibilityBadge({ visibility }: { visibility: Visibility }) {
   );
 }
 
+function normalizeHandle(value: string) {
+  const cleaned = value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9_@-]/g, "");
+
+  if (!cleaned) {
+    return defaultProfile.handle;
+  }
+
+  return cleaned.startsWith("@") ? cleaned : `@${cleaned}`;
+}
+
+function normalizeStoredProfile(rawProfile: unknown): Profile {
+  if (!rawProfile || typeof rawProfile !== "object") {
+    return defaultProfile;
+  }
+
+  const storedProfile = rawProfile as Partial<Profile>;
+
+  return {
+    displayName:
+      typeof storedProfile.displayName === "string" && storedProfile.displayName.trim()
+        ? storedProfile.displayName.trim().slice(0, 40)
+        : defaultProfile.displayName,
+    handle:
+      typeof storedProfile.handle === "string"
+        ? normalizeHandle(storedProfile.handle)
+        : defaultProfile.handle,
+    bio:
+      typeof storedProfile.bio === "string" && storedProfile.bio.trim()
+        ? storedProfile.bio.trim().slice(0, 180)
+        : defaultProfile.bio,
+    bannerStyle:
+      typeof storedProfile.bannerStyle === "string" && storedProfile.bannerStyle in bannerStyles
+        ? (storedProfile.bannerStyle as BannerStyle)
+        : defaultProfile.bannerStyle,
+    profileVisibility:
+      storedProfile.profileVisibility === "Pack only" ||
+      storedProfile.profileVisibility === "Private" ||
+      storedProfile.profileVisibility === "Public"
+        ? storedProfile.profileVisibility
+        : defaultProfile.profileVisibility,
+  };
+}
+
 function normalizeStoredRoars(rawRoars: unknown): Roar[] {
   if (!Array.isArray(rawRoars)) {
     return [];
@@ -96,8 +171,8 @@ function normalizeStoredRoars(rawRoars: unknown): Roar[] {
 
       return {
         id: storedRoar.id ?? crypto.randomUUID(),
-        author: storedRoar.author ?? "Kodiak",
-        handle: storedRoar.handle ?? "@kodiak",
+        author: storedRoar.author ?? defaultProfile.displayName,
+        handle: storedRoar.handle ?? defaultProfile.handle,
         time: storedRoar.time ?? "now",
         visibility: storedRoar.visibility ?? "Public",
         text: storedRoar.text ?? "",
@@ -111,16 +186,30 @@ function normalizeStoredRoars(rawRoars: unknown): Roar[] {
 
 export default function MyDenPage() {
   const [roars, setRoars] = useState<Roar[]>([]);
+  const [profile, setProfile] = useState<Profile>(defaultProfile);
+  const [draftProfile, setDraftProfile] = useState<Profile>(defaultProfile);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const savedRoars = window.localStorage.getItem(storageKey);
+    const savedRoars = window.localStorage.getItem(roarsStorageKey);
+    const savedProfile = window.localStorage.getItem(profileStorageKey);
 
     if (savedRoars) {
       try {
         setRoars(normalizeStoredRoars(JSON.parse(savedRoars)));
       } catch {
-        window.localStorage.removeItem(storageKey);
+        window.localStorage.removeItem(roarsStorageKey);
+      }
+    }
+
+    if (savedProfile) {
+      try {
+        const hydratedProfile = normalizeStoredProfile(JSON.parse(savedProfile));
+        setProfile(hydratedProfile);
+        setDraftProfile(hydratedProfile);
+      } catch {
+        window.localStorage.removeItem(profileStorageKey);
       }
     }
 
@@ -137,6 +226,28 @@ export default function MyDenPage() {
       comments,
     };
   }, [roars]);
+
+  function openProfileEditor() {
+    setDraftProfile(profile);
+    setIsEditingProfile(true);
+  }
+
+  function saveProfile() {
+    const nextProfile = normalizeStoredProfile({
+      ...draftProfile,
+      handle: normalizeHandle(draftProfile.handle),
+    });
+
+    setProfile(nextProfile);
+    setDraftProfile(nextProfile);
+    window.localStorage.setItem(profileStorageKey, JSON.stringify(nextProfile));
+    setIsEditingProfile(false);
+  }
+
+  function cancelProfileEdit() {
+    setDraftProfile(profile);
+    setIsEditingProfile(false);
+  }
 
   return (
     <main className="min-h-screen bg-[#050608] text-zinc-100">
@@ -165,7 +276,7 @@ export default function MyDenPage() {
 
         <section className="space-y-5">
           <header className="overflow-hidden rounded-[2rem] border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/30">
-            <div className="h-36 bg-[radial-gradient(circle_at_top_left,_rgba(245,158,11,0.32),_transparent_34%),linear-gradient(135deg,_rgba(245,158,11,0.2),_rgba(24,24,27,0.4),_rgba(5,6,8,1))]" />
+            <div className={`h-36 ${bannerStyles[profile.bannerStyle]}`} />
 
             <div className="p-5 pt-0">
               <div className="-mt-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -175,19 +286,31 @@ export default function MyDenPage() {
                   </div>
 
                   <div className="pb-2">
-                    <p className="text-3xl font-black tracking-tight">Kodiak</p>
-                    <p className="text-sm font-bold text-zinc-500">@kodiak</p>
+                    <p className="text-3xl font-black tracking-tight">{profile.displayName}</p>
+                    <p className="text-sm font-bold text-zinc-500">{profile.handle}</p>
                   </div>
                 </div>
 
-                <button className="rounded-full border border-zinc-800 px-5 py-2 text-sm font-bold text-zinc-300 transition hover:border-amber-500 hover:text-amber-300">
-                  Edit Profile soon
+                <button
+                  onClick={openProfileEditor}
+                  className="rounded-full border border-zinc-800 px-5 py-2 text-sm font-bold text-zinc-300 transition hover:border-amber-500 hover:text-amber-300"
+                >
+                  Edit Profile
                 </button>
               </div>
 
-              <p className="mt-5 max-w-2xl text-sm leading-6 text-zinc-400">
-                Building Kodiak Den: a private corner of the internet for Roars, Pack, and quiet social connection without a creepy algorithm.
+              <p className="mt-5 max-w-2xl whitespace-pre-wrap text-sm leading-6 text-zinc-400">
+                {profile.bio}
               </p>
+
+              <div className="mt-4 flex flex-wrap gap-2 text-xs font-black">
+                <span className="rounded-full border border-zinc-800 bg-zinc-900/70 px-3 py-1 text-zinc-400">
+                  Profile: {profile.profileVisibility}
+                </span>
+                <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-amber-300">
+                  {profile.bannerStyle}
+                </span>
+              </div>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
@@ -205,6 +328,142 @@ export default function MyDenPage() {
               </div>
             </div>
           </header>
+
+          {isEditingProfile ? (
+            <section className="rounded-[2rem] border border-amber-500/20 bg-amber-500/10 p-5">
+              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                <div>
+                  <p className="text-sm font-black uppercase tracking-[0.3em] text-amber-400">
+                    Edit Profile
+                  </p>
+                  <h2 className="mt-2 text-2xl font-black">Shape your Den.</h2>
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-400">
+                    These changes are local to this browser for now. Later this becomes your real
+                    account profile.
+                  </p>
+                </div>
+
+                <button
+                  onClick={cancelProfileEdit}
+                  className="rounded-full border border-zinc-800 px-4 py-2 text-sm font-bold text-zinc-300 transition hover:border-zinc-600"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
+                    Display name
+                  </span>
+                  <input
+                    value={draftProfile.displayName}
+                    onChange={(event) =>
+                      setDraftProfile((current) => ({
+                        ...current,
+                        displayName: event.target.value,
+                      }))
+                    }
+                    maxLength={40}
+                    className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-bold text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-amber-500"
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
+                    Handle
+                  </span>
+                  <input
+                    value={draftProfile.handle}
+                    onChange={(event) =>
+                      setDraftProfile((current) => ({
+                        ...current,
+                        handle: event.target.value,
+                      }))
+                    }
+                    maxLength={30}
+                    className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-bold text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-amber-500"
+                  />
+                </label>
+
+                <label className="space-y-2 sm:col-span-2">
+                  <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
+                    Bio
+                  </span>
+                  <textarea
+                    value={draftProfile.bio}
+                    onChange={(event) =>
+                      setDraftProfile((current) => ({
+                        ...current,
+                        bio: event.target.value,
+                      }))
+                    }
+                    maxLength={180}
+                    rows={4}
+                    className="w-full resize-none rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-bold leading-6 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-amber-500"
+                  />
+                  <span className="text-xs font-bold text-zinc-600">
+                    {draftProfile.bio.length}/180
+                  </span>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
+                    Banner style
+                  </span>
+                  <select
+                    value={draftProfile.bannerStyle}
+                    onChange={(event) =>
+                      setDraftProfile((current) => ({
+                        ...current,
+                        bannerStyle: event.target.value as BannerStyle,
+                      }))
+                    }
+                    className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-bold text-zinc-100 outline-none transition focus:border-amber-500"
+                  >
+                    <option>Kodiak Gold</option>
+                    <option>Midnight Den</option>
+                    <option>Pine Ridge</option>
+                  </select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
+                    Profile visibility
+                  </span>
+                  <select
+                    value={draftProfile.profileVisibility}
+                    onChange={(event) =>
+                      setDraftProfile((current) => ({
+                        ...current,
+                        profileVisibility: event.target.value as ProfileVisibility,
+                      }))
+                    }
+                    className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-bold text-zinc-100 outline-none transition focus:border-amber-500"
+                  >
+                    <option>Public</option>
+                    <option>Pack only</option>
+                    <option>Private</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <button
+                  onClick={cancelProfileEdit}
+                  className="rounded-2xl border border-zinc-800 px-5 py-3 text-sm font-black text-zinc-300 transition hover:border-zinc-600"
+                >
+                  Discard
+                </button>
+                <button
+                  onClick={saveProfile}
+                  className="rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-400"
+                >
+                  Save Profile
+                </button>
+              </div>
+            </section>
+          ) : null}
 
           <section className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
@@ -243,8 +502,8 @@ export default function MyDenPage() {
               {roars.map((roar) => (
                 <article key={roar.id} className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-black">Kodiak</p>
-                    <p className="text-sm text-zinc-500">@kodiak</p>
+                    <p className="font-black">{profile.displayName}</p>
+                    <p className="text-sm text-zinc-500">{profile.handle}</p>
                     <p className="text-sm text-zinc-600">· {roar.time}</p>
                   </div>
                   <div className="mt-3">
@@ -269,8 +528,9 @@ export default function MyDenPage() {
                 Your Den should show only what you choose to share.
               </p>
               <div className="mt-4 space-y-3 text-sm font-bold text-zinc-300">
+                <p>✓ Profile visibility: {profile.profileVisibility}</p>
                 <p>✓ Roars keep their visibility labels</p>
-                <p>✓ Bio and profile edits are local mockups</p>
+                <p>✓ Profile edits stay local for now</p>
                 <p>✓ Export/delete planned before real launch</p>
               </div>
             </section>
@@ -278,10 +538,10 @@ export default function MyDenPage() {
             <section className="rounded-[2rem] border border-amber-500/20 bg-amber-500/10 p-5">
               <h2 className="text-lg font-black text-amber-300">Coming Next</h2>
               <div className="mt-4 space-y-3 text-sm font-bold text-zinc-300">
-                <p>Edit profile</p>
-                <p>Profile avatar</p>
-                <p>Banner image</p>
+                <p>Profile avatar upload</p>
+                <p>Banner image upload</p>
                 <p>Delete or edit Roars</p>
+                <p>Real account storage</p>
               </div>
             </section>
           </div>
