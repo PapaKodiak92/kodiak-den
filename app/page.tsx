@@ -66,7 +66,7 @@ export default function Home() {
               href="/support"
               className="rounded-full border border-zinc-800 px-5 py-2 text-sm font-bold text-zinc-200 transition hover:border-amber-500 hover:text-amber-300"
             >
-              Support
+              Need Support?
             </Link>
             <button className="rounded-full border border-zinc-800 px-5 py-2 text-sm font-bold text-zinc-200 transition hover:border-amber-500 hover:text-amber-300">
               Sign In
@@ -113,7 +113,7 @@ export default function Home() {
                 href="/support"
                 className="rounded-2xl border border-zinc-800 px-7 py-4 text-center text-base font-bold text-zinc-200 transition hover:border-amber-500 hover:text-amber-300"
               >
-                Support Kodiak Den
+                Need Support?
               </Link>
             </div>
           </section>
@@ -158,25 +158,26 @@ export default function Home() {
           ))}
         </section>
 
-        <section className="mb-10 rounded-[2rem] border border-amber-500/30 bg-amber-500/10 p-6">
+        <section className="mb-10 rounded-[2rem] border border-zinc-800 bg-zinc-900/50 p-6">
           <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
             <div>
               <p className="text-sm font-black uppercase tracking-[0.35em] text-amber-300">
-                Help build the Den
+                Need Support?
               </p>
               <h2 className="mt-3 text-3xl font-black tracking-tight">
-                Support a social platform built around people, not tracking.
+                Questions, account help, safety, or feedback.
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">
-                Support links, community updates, and ways to help will live here
-                as Kodiak Den grows.
+                The support area is where people can get help, report issues,
+                ask questions, or contact the Kodiak Den team when something
+                needs attention.
               </p>
             </div>
             <Link
               href="/support"
-              className="rounded-2xl bg-amber-500 px-6 py-4 text-center text-sm font-black text-zinc-950 transition hover:bg-amber-400"
+              className="rounded-2xl border border-zinc-700 px-6 py-4 text-center text-sm font-black text-zinc-100 transition hover:border-amber-500 hover:text-amber-300"
             >
-              Support Kodiak Den
+              Need Support?
             </Link>
           </div>
         </section>
