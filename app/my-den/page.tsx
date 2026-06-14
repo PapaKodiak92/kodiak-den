@@ -8,6 +8,7 @@ import kodiakDenLogo from "../../assets/kodiak-den-logo.png";
 type Visibility = "Public" | "Pack" | "Inner Den";
 type ProfileVisibility = "Public" | "Pack only" | "Private";
 type BannerStyle = "Kodiak Gold" | "Midnight Den" | "Pine Ridge";
+type RoarReaction = "up" | "down" | null;
 
 type RoarComment = {
   id: string;
@@ -24,9 +25,10 @@ type Roar = {
   time: string;
   visibility: Visibility;
   text: string;
-  pawprints: number;
+  pawsUp: number;
+  pawsDown: number;
+  reaction: RoarReaction;
   comments: RoarComment[];
-  hasPawprinted: boolean;
 };
 
 type Profile = {
@@ -155,7 +157,11 @@ function normalizeStoredRoars(rawRoars: unknown): Roar[] {
   return rawRoars
     .filter((rawRoar) => rawRoar && typeof rawRoar === "object")
     .map((rawRoar) => {
-      const storedRoar = rawRoar as Partial<Roar> & { comments?: unknown };
+      const storedRoar = rawRoar as Partial<Roar> & {
+        comments?: unknown;
+        pawprints?: number;
+        hasPawprinted?: boolean;
+      };
       const comments = Array.isArray(storedRoar.comments)
         ? storedRoar.comments.filter((comment): comment is RoarComment => {
             return Boolean(
@@ -169,6 +175,13 @@ function normalizeStoredRoars(rawRoars: unknown): Roar[] {
           })
         : [];
 
+      const legacyPawprints = typeof storedRoar.pawprints === "number" ? storedRoar.pawprints : 0;
+      const legacyReaction = storedRoar.hasPawprinted ? "up" : null;
+      const reaction =
+        storedRoar.reaction === "up" || storedRoar.reaction === "down"
+          ? storedRoar.reaction
+          : legacyReaction;
+
       return {
         id: storedRoar.id ?? crypto.randomUUID(),
         author: storedRoar.author ?? defaultProfile.displayName,
@@ -176,9 +189,10 @@ function normalizeStoredRoars(rawRoars: unknown): Roar[] {
         time: storedRoar.time ?? "now",
         visibility: storedRoar.visibility ?? "Public",
         text: storedRoar.text ?? "",
-        pawprints: storedRoar.pawprints ?? 0,
+        pawsUp: storedRoar.pawsUp ?? legacyPawprints,
+        pawsDown: storedRoar.pawsDown ?? 0,
+        reaction,
         comments,
-        hasPawprinted: storedRoar.hasPawprinted ?? false,
       };
     })
     .filter((roar) => roar.text.trim().length > 0);
@@ -217,12 +231,14 @@ export default function MyDenPage() {
   }, []);
 
   const stats = useMemo(() => {
-    const pawprints = roars.reduce((total, roar) => total + roar.pawprints, 0);
+    const pawsUp = roars.reduce((total, roar) => total + roar.pawsUp, 0);
+    const pawsDown = roars.reduce((total, roar) => total + roar.pawsDown, 0);
     const comments = roars.reduce((total, roar) => total + roar.comments.length, 0);
 
     return {
       roars: roars.length,
-      pawprints,
+      pawsUp,
+      pawsDown,
       comments,
     };
   }, [roars]);
@@ -312,14 +328,18 @@ export default function MyDenPage() {
                 </span>
               </div>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="mt-5 grid gap-3 sm:grid-cols-4">
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
                   <p className="text-2xl font-black text-amber-300">{stats.roars}</p>
                   <p className="mt-1 text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Roars</p>
                 </div>
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-                  <p className="text-2xl font-black text-amber-300">{stats.pawprints}</p>
-                  <p className="mt-1 text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Pawprints</p>
+                  <p className="text-2xl font-black text-amber-300">{stats.pawsUp}</p>
+                  <p className="mt-1 text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Paws Up</p>
+                </div>
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+                  <p className="text-2xl font-black text-red-300">{stats.pawsDown}</p>
+                  <p className="mt-1 text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Paws Down</p>
                 </div>
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
                   <p className="text-2xl font-black text-amber-300">{stats.comments}</p>
@@ -511,7 +531,8 @@ export default function MyDenPage() {
                   </div>
                   <p className="mt-5 whitespace-pre-wrap text-lg font-semibold leading-8 text-zinc-100">{roar.text}</p>
                   <div className="mt-5 flex flex-wrap gap-3 text-sm font-black text-zinc-400">
-                    <span className="rounded-full border border-zinc-800 px-4 py-2">🐾 {roar.pawprints} Pawprints</span>
+                    <span className="rounded-full border border-zinc-800 px-4 py-2">🐾↑ {roar.pawsUp} Paws Up</span>
+                    <span className="rounded-full border border-zinc-800 px-4 py-2">🐾↓ {roar.pawsDown} Paws Down</span>
                     <span className="rounded-full border border-zinc-800 px-4 py-2">💬 {roar.comments.length} Comments</span>
                   </div>
                 </article>
@@ -530,7 +551,7 @@ export default function MyDenPage() {
               <div className="mt-4 space-y-3 text-sm font-bold text-zinc-300">
                 <p>✓ Profile visibility: {profile.profileVisibility}</p>
                 <p>✓ Roars keep their visibility labels</p>
-                <p>✓ Profile edits stay local for now</p>
+                <p>✓ Paws Up and Paws Down stay local for now</p>
                 <p>✓ Export/delete planned before real launch</p>
               </div>
             </section>
