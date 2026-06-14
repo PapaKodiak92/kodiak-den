@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import kodiakDenLogo from "../assets/kodiak-den-logo.png";
 
 const features = [
@@ -58,9 +59,12 @@ export default function Home() {
             <button className="rounded-full border border-zinc-800 px-5 py-2 text-sm font-bold text-zinc-200 transition hover:border-amber-500 hover:text-amber-300">
               Sign In
             </button>
-            <button className="rounded-full bg-amber-500 px-5 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-400">
+            <Link
+              href="/den"
+              className="rounded-full bg-amber-500 px-5 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-400"
+            >
               Create Your Den
-            </button>
+            </Link>
           </div>
         </nav>
 
@@ -81,12 +85,18 @@ export default function Home() {
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <button className="rounded-2xl bg-amber-500 px-7 py-4 text-base font-black text-zinc-950 transition hover:bg-amber-400">
+              <Link
+                href="/den"
+                className="rounded-2xl bg-amber-500 px-7 py-4 text-center text-base font-black text-zinc-950 transition hover:bg-amber-400"
+              >
                 Create Your Den
-              </button>
-              <button className="rounded-2xl border border-zinc-800 px-7 py-4 text-base font-bold text-zinc-200 transition hover:border-amber-500 hover:text-amber-300">
+              </Link>
+              <Link
+                href="/den"
+                className="rounded-2xl border border-zinc-800 px-7 py-4 text-center text-base font-bold text-zinc-200 transition hover:border-amber-500 hover:text-amber-300"
+              >
                 Explore The Trail
-              </button>
+              </Link>
             </div>
           </section>
 
