@@ -23,6 +23,7 @@ type Roar = {
   author: string;
   handle: string;
   time: string;
+  editedAt?: string;
   visibility: Visibility;
   text: string;
   pawsUp: number;
@@ -100,6 +101,13 @@ function VisibilityBadge({ visibility }: { visibility: Visibility }) {
       {visibility}
     </span>
   );
+}
+
+function formatLocalTime() {
+  return new Intl.DateTimeFormat("en", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date());
 }
 
 function normalizeHandle(value: string) {
@@ -187,6 +195,7 @@ function normalizeStoredRoars(rawRoars: unknown): Roar[] {
         author: storedRoar.author ?? defaultProfile.displayName,
         handle: storedRoar.handle ?? defaultProfile.handle,
         time: storedRoar.time ?? "now",
+        editedAt: typeof storedRoar.editedAt === "string" ? storedRoar.editedAt : undefined,
         visibility: storedRoar.visibility ?? "Public",
         text: storedRoar.text ?? "",
         pawsUp: storedRoar.pawsUp ?? legacyPawprints,
@@ -204,6 +213,9 @@ export default function MyDenPage() {
   const [draftProfile, setDraftProfile] = useState<Profile>(defaultProfile);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [editingRoarId, setEditingRoarId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [editVisibility, setEditVisibility] = useState<Visibility>("Public");
 
   useEffect(() => {
     const savedRoars = window.localStorage.getItem(roarsStorageKey);
@@ -229,6 +241,14 @@ export default function MyDenPage() {
 
     setIsLoaded(true);
   }, []);
+
+  useEffect(() => {
+    if (!isLoaded) {
+      return;
+    }
+
+    window.localStorage.setItem(roarsStorageKey, JSON.stringify(roars));
+  }, [isLoaded, roars]);
 
   const stats = useMemo(() => {
     const pawsUp = roars.reduce((total, roar) => total + roar.pawsUp, 0);
@@ -263,6 +283,55 @@ export default function MyDenPage() {
   function cancelProfileEdit() {
     setDraftProfile(profile);
     setIsEditingProfile(false);
+  }
+
+  function startEditingRoar(roar: Roar) {
+    setEditingRoarId(roar.id);
+    setEditDraft(roar.text);
+    setEditVisibility(roar.visibility);
+  }
+
+  function cancelEditingRoar() {
+    setEditingRoarId(null);
+    setEditDraft("");
+    setEditVisibility("Public");
+  }
+
+  function saveRoarEdit(roarId: string) {
+    const cleanEdit = editDraft.trim();
+
+    if (!cleanEdit) {
+      return;
+    }
+
+    setRoars((currentRoars) =>
+      currentRoars.map((roar) =>
+        roar.id === roarId
+          ? {
+              ...roar,
+              text: cleanEdit,
+              visibility: editVisibility,
+              editedAt: formatLocalTime(),
+            }
+          : roar,
+      ),
+    );
+
+    cancelEditingRoar();
+  }
+
+  function deleteRoar(roarId: string) {
+    const shouldDelete = window.confirm("Delete this Roar from your local Den?");
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setRoars((currentRoars) => currentRoars.filter((roar) => roar.id !== roarId));
+
+    if (editingRoarId === roarId) {
+      cancelEditingRoar();
+    }
   }
 
   return (
@@ -519,24 +588,96 @@ export default function MyDenPage() {
             </section>
           ) : (
             <div className="space-y-5">
-              {roars.map((roar) => (
-                <article key={roar.id} className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-black">{profile.displayName}</p>
-                    <p className="text-sm text-zinc-500">{profile.handle}</p>
-                    <p className="text-sm text-zinc-600">· {roar.time}</p>
-                  </div>
-                  <div className="mt-3">
-                    <VisibilityBadge visibility={roar.visibility} />
-                  </div>
-                  <p className="mt-5 whitespace-pre-wrap text-lg font-semibold leading-8 text-zinc-100">{roar.text}</p>
-                  <div className="mt-5 flex flex-wrap gap-3 text-sm font-black text-zinc-400">
-                    <span className="rounded-full border border-zinc-800 px-4 py-2">🐾↑ {roar.pawsUp} Paws Up</span>
-                    <span className="rounded-full border border-zinc-800 px-4 py-2">🐾↓ {roar.pawsDown} Paws Down</span>
-                    <span className="rounded-full border border-zinc-800 px-4 py-2">💬 {roar.comments.length} Comments</span>
-                  </div>
-                </article>
-              ))}
+              {roars.map((roar) => {
+                const isEditing = editingRoarId === roar.id;
+
+                return (
+                  <article key={roar.id} className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-black">{profile.displayName}</p>
+                          <p className="text-sm text-zinc-500">{profile.handle}</p>
+                          <p className="text-sm text-zinc-600">· {roar.time}</p>
+                          {roar.editedAt ? (
+                            <p className="text-sm text-zinc-600">· edited {roar.editedAt}</p>
+                          ) : null}
+                        </div>
+                        <div className="mt-3">
+                          <VisibilityBadge visibility={roar.visibility} />
+                        </div>
+                      </div>
+
+                      {!isEditing ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => startEditingRoar(roar)}
+                            className="rounded-full border border-zinc-800 px-3 py-1 text-xs font-black text-zinc-500 transition hover:border-amber-500/40 hover:text-amber-300"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => deleteRoar(roar.id)}
+                            className="rounded-full border border-zinc-800 px-3 py-1 text-xs font-black text-zinc-500 transition hover:border-red-500/50 hover:text-red-300"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {isEditing ? (
+                      <section className="mt-5 rounded-3xl border border-amber-500/20 bg-amber-500/10 p-4">
+                        <textarea
+                          value={editDraft}
+                          onChange={(event) => setEditDraft(event.target.value)}
+                          className="min-h-28 w-full resize-none rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-sm font-medium text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500"
+                        />
+                        <div className="mt-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                          <div className="flex flex-wrap gap-2">
+                            {(["Public", "Pack", "Inner Den"] as Visibility[]).map((option) => (
+                              <button
+                                key={option}
+                                onClick={() => setEditVisibility(option)}
+                                className={
+                                  option === editVisibility
+                                    ? "rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-300"
+                                    : "rounded-full border border-zinc-800 px-3 py-1 text-xs font-bold text-zinc-400 transition hover:border-amber-500/40 hover:text-amber-300"
+                                }
+                              >
+                                {option}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={cancelEditingRoar}
+                              className="rounded-2xl border border-zinc-800 px-5 py-3 text-sm font-black text-zinc-300 transition hover:border-zinc-600"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => saveRoarEdit(roar.id)}
+                              disabled={editDraft.trim().length === 0}
+                              className="rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+                            >
+                              Save Roar
+                            </button>
+                          </div>
+                        </div>
+                      </section>
+                    ) : (
+                      <p className="mt-5 whitespace-pre-wrap text-lg font-semibold leading-8 text-zinc-100">{roar.text}</p>
+                    )}
+
+                    <div className="mt-5 flex flex-wrap gap-3 text-sm font-black text-zinc-400">
+                      <span className="rounded-full border border-zinc-800 px-4 py-2">🐾↑ {roar.pawsUp} Paws Up</span>
+                      <span className="rounded-full border border-zinc-800 px-4 py-2">🐾↓ {roar.pawsDown} Paws Down</span>
+                      <span className="rounded-full border border-zinc-800 px-4 py-2">💬 {roar.comments.length} Comments</span>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
@@ -551,8 +692,8 @@ export default function MyDenPage() {
               <div className="mt-4 space-y-3 text-sm font-bold text-zinc-300">
                 <p>✓ Profile visibility: {profile.profileVisibility}</p>
                 <p>✓ Roars keep their visibility labels</p>
+                <p>✓ Edit/delete your local Roars</p>
                 <p>✓ Paws Up and Paws Down stay local for now</p>
-                <p>✓ Export/delete planned before real launch</p>
               </div>
             </section>
 
@@ -561,7 +702,7 @@ export default function MyDenPage() {
               <div className="mt-4 space-y-3 text-sm font-bold text-zinc-300">
                 <p>Profile avatar upload</p>
                 <p>Banner image upload</p>
-                <p>Delete or edit Roars</p>
+                <p>Pack page</p>
                 <p>Real account storage</p>
               </div>
             </section>
