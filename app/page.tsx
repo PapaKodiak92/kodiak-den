@@ -20,17 +20,39 @@ const features = [
   },
 ];
 
+function KodiakBrand() {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative h-16 w-16 overflow-hidden rounded-2xl bg-transparent">
+        <Image
+          src={kodiakDenLogo}
+          alt=""
+          priority
+          className="h-full w-full origin-top scale-[2.25] object-contain object-top"
+        />
+      </div>
+
+      <div className="leading-none">
+        <div className="flex items-baseline gap-2 text-2xl font-black tracking-tight">
+          <span className="text-zinc-100">Kodiak</span>
+          <span className="text-amber-400">Den</span>
+        </div>
+        <div className="mt-2 flex items-center gap-2 text-[0.6rem] font-bold uppercase tracking-[0.32em] text-zinc-400">
+          <span className="h-px w-6 bg-amber-500" />
+          <span>Privacy-first social</span>
+          <span className="h-px w-6 bg-amber-500" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#050608] text-zinc-100">
       <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
         <nav className="flex items-center justify-between gap-6">
-          <Image
-            src={kodiakDenLogo}
-            alt="Kodiak Den logo"
-            priority
-            className="h-auto w-44 object-contain sm:w-56"
-          />
+          <KodiakBrand />
 
           <div className="hidden items-center gap-3 sm:flex">
             <button className="rounded-full border border-zinc-800 px-5 py-2 text-sm font-bold text-zinc-200 transition hover:border-amber-500 hover:text-amber-300">
