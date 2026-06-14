@@ -60,7 +60,7 @@ export default function Home() {
               Sign In
             </button>
             <Link
-              href="/den"
+              href="/my-den"
               className="rounded-full bg-amber-500 px-5 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-400"
             >
               Create Your Den
@@ -86,7 +86,7 @@ export default function Home() {
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/den"
+                href="/my-den"
                 className="rounded-2xl bg-amber-500 px-7 py-4 text-center text-base font-black text-zinc-950 transition hover:bg-amber-400"
               >
                 Create Your Den
