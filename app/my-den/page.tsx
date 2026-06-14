@@ -207,7 +207,7 @@ export default function MyDenPage() {
     setEditingProfile(false);
   }
 
-  async function uploadImage(field: "avatarImage" | "bannerImage", event: ChangeEvent<HTMLInputElement>) {
+  async function uploadImage(field: "avatarImage" | "bannerImage", event: ChangeEvent<HTMLInputElement>, target: "draft" | "profile" = "draft") {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
@@ -216,6 +216,17 @@ export default function MyDenPage() {
 
     try {
       const image = await readImage(file);
+
+      if (target === "profile") {
+        setProfile((current) => {
+          const nextProfile = normalizeProfile({ ...current, [field]: image });
+          window.localStorage.setItem(profileStorageKey, JSON.stringify(nextProfile));
+          setDraftProfile(nextProfile);
+          return nextProfile;
+        });
+        return;
+      }
+
       setDraftProfile((current) => ({ ...current, [field]: image }));
     } catch {
       window.alert("Could not read that image. Try another one.");
@@ -273,11 +284,24 @@ export default function MyDenPage() {
 
         <section className="space-y-5">
           <header className="overflow-hidden rounded-[2rem] border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/30">
-            <div className={`h-60 bg-cover bg-center ${profile.bannerImage ? "" : bannerStyles[profile.bannerStyle]}`} style={bannerStyle} />
+            <label className="group relative block h-60 cursor-pointer overflow-hidden">
+              <div className={`absolute inset-0 bg-cover bg-center ${profile.bannerImage ? "" : bannerStyles[profile.bannerStyle]}`} style={bannerStyle} />
+              <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/25" />
+              <div className="absolute right-5 top-5 rounded-full border border-zinc-700/70 bg-zinc-950/80 px-4 py-2 text-xs font-black text-zinc-100 opacity-0 shadow-xl shadow-black/30 backdrop-blur transition group-hover:opacity-100">
+                Edit banner
+              </div>
+              <input type="file" accept="image/*" onChange={(event) => uploadImage("bannerImage", event, "profile")} className="hidden" />
+            </label>
             <div className="px-6 pb-8 sm:px-8 sm:pb-9">
               <div className="-mt-8 flex flex-col justify-between gap-7 sm:flex-row sm:items-end">
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:gap-5">
-                  <Avatar profile={profile} size="lg" />
+                  <label className="group relative block cursor-pointer">
+                    <Avatar profile={profile} size="lg" />
+                    <div className="absolute inset-0 grid place-items-center rounded-[2rem] bg-black/0 text-xs font-black text-white opacity-0 transition group-hover:bg-black/45 group-hover:opacity-100">
+                      Edit
+                    </div>
+                    <input type="file" accept="image/*" onChange={(event) => uploadImage("avatarImage", event, "profile")} className="hidden" />
+                  </label>
                   <div className="pb-2 sm:pb-4">
                     <p className="text-4xl font-black tracking-tight">{profile.displayName}</p>
                     <p className="mt-1 text-sm font-bold text-zinc-500">{profile.handle}</p>
@@ -308,172 +332,7 @@ export default function MyDenPage() {
               </div>
             </div>
           </header>
-
-          {editingProfile ? (
-            <section className="rounded-[2rem] border border-amber-500/20 bg-amber-500/10 p-5">
-              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                <div>
-                  <p className="text-sm font-black uppercase tracking-[0.3em] text-amber-400">Edit Profile</p>
-                  <h2 className="mt-2 text-2xl font-black">Shape your Den.</h2>
-                  <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-400">Pick the name, bio, avatar, and banner people see when they visit your Den.</p>
-                </div>
-                <button onClick={() => setEditingProfile(false)} className="rounded-full border border-zinc-800 px-4 py-2 text-sm font-bold text-zinc-300 transition hover:border-zinc-600">Cancel</button>
-              </div>
-
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                <section className="rounded-3xl border border-zinc-800 bg-zinc-950/70 p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">Profile picture</p>
-                  <div className="mt-4 flex items-center gap-4">
-                    <Avatar profile={draftProfile} size="md" />
-                    <div className="space-y-2">
-                      <label className="inline-flex cursor-pointer rounded-2xl bg-amber-500 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-400">
-                        Upload avatar
-                        <input type="file" accept="image/*" onChange={(event) => uploadImage("avatarImage", event)} className="hidden" />
-                      </label>
-                      {draftProfile.avatarImage ? <button onClick={() => setDraftProfile((current) => ({ ...current, avatarImage: null }))} className="block rounded-2xl border border-zinc-800 px-4 py-2 text-sm font-bold text-zinc-400 transition hover:border-red-500/50 hover:text-red-300">Remove avatar</button> : null}
-                    </div>
-                  </div>
-                </section>
-
-                <section className="rounded-3xl border border-zinc-800 bg-zinc-950/70 p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">Banner image</p>
-                  <div className={`mt-4 h-24 rounded-2xl border border-zinc-800 bg-cover bg-center ${draftProfile.bannerImage ? "" : bannerStyles[draftProfile.bannerStyle]}`} style={draftProfile.bannerImage ? { backgroundImage: `linear-gradient(135deg, rgba(5,6,8,0.08), rgba(5,6,8,0.58)), url(${draftProfile.bannerImage})` } : undefined} />
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <label className="inline-flex cursor-pointer rounded-2xl bg-amber-500 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-400">
-                      Upload banner
-                      <input type="file" accept="image/*" onChange={(event) => uploadImage("bannerImage", event)} className="hidden" />
-                    </label>
-                    {draftProfile.bannerImage ? <button onClick={() => setDraftProfile((current) => ({ ...current, bannerImage: null }))} className="rounded-2xl border border-zinc-800 px-4 py-2 text-sm font-bold text-zinc-400 transition hover:border-red-500/50 hover:text-red-300">Remove banner</button> : null}
-                  </div>
-                </section>
-
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">Display name</span>
-                  <input value={draftProfile.displayName} onChange={(event) => setDraftProfile((current) => ({ ...current, displayName: event.target.value }))} maxLength={40} className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-bold text-zinc-100 outline-none transition focus:border-amber-500" />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">Handle</span>
-                  <input value={draftProfile.handle} onChange={(event) => setDraftProfile((current) => ({ ...current, handle: event.target.value }))} maxLength={30} className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-bold text-zinc-100 outline-none transition focus:border-amber-500" />
-                </label>
-                <label className="space-y-2 sm:col-span-2">
-                  <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">Bio</span>
-                  <textarea value={draftProfile.bio} onChange={(event) => setDraftProfile((current) => ({ ...current, bio: event.target.value }))} maxLength={180} rows={4} className="w-full resize-none rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-bold leading-6 text-zinc-100 outline-none transition focus:border-amber-500" />
-                  <span className="text-xs font-bold text-zinc-600">{draftProfile.bio.length}/180</span>
-                </label>
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">Banner style</span>
-                  <select value={draftProfile.bannerStyle} onChange={(event) => setDraftProfile((current) => ({ ...current, bannerStyle: event.target.value as BannerStyle }))} className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-bold text-zinc-100 outline-none transition focus:border-amber-500">
-                    <option>Kodiak Gold</option>
-                    <option>Midnight Den</option>
-                    <option>Pine Ridge</option>
-                  </select>
-                </label>
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">Profile visibility</span>
-                  <select value={draftProfile.profileVisibility} onChange={(event) => setDraftProfile((current) => ({ ...current, profileVisibility: event.target.value as ProfileVisibility }))} className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-bold text-zinc-100 outline-none transition focus:border-amber-500">
-                    <option>Public</option>
-                    <option>Pack only</option>
-                    <option>Private</option>
-                  </select>
-                </label>
-              </div>
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                <button onClick={saveProfile} className="rounded-2xl bg-amber-500 px-6 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-400">Save Profile</button>
-                <button onClick={() => { setDraftProfile(profile); setEditingProfile(false); }} className="rounded-2xl border border-zinc-800 px-6 py-3 text-sm font-bold text-zinc-300 transition hover:border-zinc-600">Discard</button>
-              </div>
-            </section>
-          ) : null}
-
-          <section className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-6">
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-              <div>
-                <p className="text-sm font-black uppercase tracking-[0.35em] text-amber-400">My Roars</p>
-                <h2 className="mt-3 max-w-lg text-3xl font-black tracking-tight">Everything you have shared.</h2>
-              </div>
-              <Link href="/den" className="rounded-3xl bg-amber-500 px-7 py-4 text-center text-sm font-black text-zinc-950 transition hover:bg-amber-400">Create a Roar</Link>
-            </div>
-          </section>
-
-          {roars.length === 0 ? (
-            <section className="rounded-[2rem] border border-dashed border-zinc-800 bg-zinc-950/70 p-10 text-center">
-              <h2 className="text-2xl font-black">Your Den is quiet.</h2>
-              <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-zinc-500">Your Roars will appear here when you start sharing on The Trail.</p>
-              <Link href="/den" className="mt-5 inline-flex rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-400">Go to The Trail</Link>
-            </section>
-          ) : (
-            <section className="space-y-4">
-              {roars.map((roar) => (
-                <article key={roar.id} className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                      <Avatar profile={profile} size="sm" />
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-black">{profile.displayName}</p>
-                          <p className="text-sm font-bold text-zinc-500">{profile.handle}</p>
-                          <p className="text-sm text-zinc-600">{roar.time}</p>
-                          {roar.editedAt ? <p className="text-sm text-zinc-600">edited {roar.editedAt}</p> : null}
-                        </div>
-                        <div className="mt-2"><span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-300">{roar.visibility}</span></div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => startRoarEdit(roar)} className="rounded-full border border-zinc-800 px-3 py-1 text-xs font-bold text-zinc-400 transition hover:border-amber-500/40 hover:text-amber-300">Edit</button>
-                      <button onClick={() => removeRoar(roar.id)} className="rounded-full border border-zinc-800 px-3 py-1 text-xs font-bold text-zinc-400 transition hover:border-red-500/50 hover:text-red-300">Remove</button>
-                    </div>
-                  </div>
-                  {editingRoarId === roar.id ? (
-                    <div className="mt-5 rounded-3xl border border-zinc-800 bg-zinc-900/60 p-4">
-                      <textarea value={editText} onChange={(event) => setEditText(event.target.value)} rows={4} className="w-full resize-none rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-bold leading-6 text-zinc-100 outline-none transition focus:border-amber-500" />
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex gap-2">
-                          {(["Public", "Pack", "Inner Den"] as Visibility[]).map((visibility) => (
-                            <button key={visibility} onClick={() => setEditVisibility(visibility)} className={editVisibility === visibility ? "rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-300" : "rounded-full border border-zinc-800 px-3 py-1 text-xs font-bold text-zinc-500 transition hover:text-zinc-300"}>{visibility}</button>
-                          ))}
-                        </div>
-                        <div className="flex gap-2">
-                          <button onClick={() => setEditingRoarId(null)} className="rounded-2xl border border-zinc-800 px-4 py-2 text-sm font-bold text-zinc-400 transition hover:border-zinc-600">Cancel</button>
-                          <button onClick={() => saveRoarEdit(roar.id)} disabled={!editText.trim()} className="rounded-2xl bg-amber-500 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500">Save</button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="mt-5 whitespace-pre-wrap text-lg font-bold leading-8">{roar.text}</p>
-                  )}
-                  <div className="mt-5 flex flex-wrap gap-3 text-sm font-black text-zinc-400">
-                    <span className="rounded-full border border-zinc-800 px-4 py-2">{roar.pawsUp} Paws Up</span>
-                    <span className="rounded-full border border-zinc-800 px-4 py-2">{roar.pawsDown} Paws Down</span>
-                    <span className="rounded-full border border-zinc-800 px-4 py-2">{roar.comments.length} Comments</span>
-                  </div>
-                </article>
-              ))}
-            </section>
-          )}
         </section>
-
-        <aside className="hidden xl:block">
-          <div className="sticky top-6 space-y-5">
-            <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
-              <h2 className="text-2xl font-black">Den Controls</h2>
-              <p className="mt-2 text-sm leading-6 text-zinc-500">Choose what people see when they visit your Den.</p>
-              <div className="mt-5 space-y-3 text-sm font-bold text-zinc-200">
-                <p>Profile visibility: {profile.profileVisibility}</p>
-                <p>Roars keep their visibility labels</p>
-                <p>Edit or remove your Roars anytime</p>
-                <p>Paws Up and Paws Down are visible on your Roars</p>
-              </div>
-            </section>
-            <section className="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-5">
-              <h2 className="text-2xl font-black text-amber-300">Den Tools</h2>
-              <div className="mt-5 space-y-3 text-sm font-bold text-zinc-200">
-                <Link href="/den" className="block hover:text-amber-300">Create a Roar</Link>
-                <button onClick={openProfileEditor} className="block text-left hover:text-amber-300">Edit profile</button>
-                <Link href="/my-den" className="block hover:text-amber-300">Manage visibility</Link>
-                <Link href="/my-den" className="block hover:text-amber-300">View Pack</Link>
-              </div>
-            </section>
-          </div>
-        </aside>
       </div>
     </main>
   );
