@@ -2,28 +2,34 @@ import Image from "next/image";
 import Link from "next/link";
 import kodiakDenLogo from "../assets/kodiak-den-logo.png";
 
-const features = [
+const principles = [
   {
-    title: "Privacy-first",
-    description: "No creepy trackers, no data selling, and no rage-bait algorithm as the default experience.",
+    title: "Privacy-first by default",
+    description:
+      "Your posts, profile, Pack, and account controls are designed around choice instead of hidden tracking.",
   },
   {
-    title: "The Trail",
-    description: "A chronological home feed for Roars, photos, links, comments, and Pawprints.",
+    title: "A chronological Trail",
+    description:
+      "See what people share in order, without rage-bait ranking deciding what deserves your attention.",
   },
   {
-    title: "Your Pack",
-    description: "Follow people you trust and control who can see your posts before you publish.",
+    title: "Your Pack, your circle",
+    description:
+      "Share publicly, with trusted people, or keep something close to your own Den.",
   },
-  {
-    title: "Inner Den",
-    description: "Private circles, clear visibility controls, account export, and account deletion from day one.",
-  },
+];
+
+const promises = [
+  "No selling personal behavior",
+  "No forced algorithmic feed",
+  "Clear visibility before posting",
+  "Profile and account controls built in",
 ];
 
 function KodiakBrand() {
   return (
-    <div className="flex items-center gap-3">
+    <Link href="/" className="flex items-center gap-3" aria-label="Kodiak Den home">
       <div className="relative h-16 w-16 overflow-hidden rounded-2xl bg-transparent">
         <Image
           src={kodiakDenLogo}
@@ -44,7 +50,7 @@ function KodiakBrand() {
           <span className="h-px w-6 bg-amber-500" />
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -56,6 +62,12 @@ export default function Home() {
           <KodiakBrand />
 
           <div className="hidden items-center gap-3 sm:flex">
+            <Link
+              href="/support"
+              className="rounded-full border border-zinc-800 px-5 py-2 text-sm font-bold text-zinc-200 transition hover:border-amber-500 hover:text-amber-300"
+            >
+              Support
+            </Link>
             <button className="rounded-full border border-zinc-800 px-5 py-2 text-sm font-bold text-zinc-200 transition hover:border-amber-500 hover:text-amber-300">
               Sign In
             </button>
@@ -71,17 +83,17 @@ export default function Home() {
         <div className="grid flex-1 items-center gap-12 py-16 lg:grid-cols-[1.05fr_0.95fr]">
           <section>
             <div className="mb-6 inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm font-bold text-amber-300">
-              No trackers. No data selling. No algorithmic rage bait.
+              Private by design. Social by choice.
             </div>
 
             <h1 className="max-w-3xl text-5xl font-black leading-tight tracking-tight sm:text-7xl">
-              Your private corner of the internet.
+              Social media should feel like yours again.
             </h1>
 
             <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-300">
-              Kodiak Den is a privacy-first social home for your Pack: posts,
-              profiles, comments, Pawprints, private circles, and a feed that
-              respects your time instead of manipulating it.
+              Kodiak Den is a privacy-first social home for profiles, Roars,
+              comments, Paws Up, Paws Down, and trusted circles. Build your Den,
+              walk The Trail, and share with the people you choose.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -97,51 +109,76 @@ export default function Home() {
               >
                 Explore The Trail
               </Link>
+              <Link
+                href="/support"
+                className="rounded-2xl border border-zinc-800 px-7 py-4 text-center text-base font-bold text-zinc-200 transition hover:border-amber-500 hover:text-amber-300"
+              >
+                Support Kodiak Den
+              </Link>
             </div>
           </section>
 
-          <section className="rounded-[2rem] border border-zinc-800 bg-zinc-900/70 p-5 shadow-2xl shadow-black/40">
-            <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-950 p-5">
-              <div className="mb-5 flex items-center gap-4">
-                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-amber-500/10 text-2xl ring-1 ring-amber-500/20">
-                  🐾
+          <section className="rounded-[2rem] border border-zinc-800 bg-zinc-900/60 p-6 shadow-2xl shadow-black/40">
+            <p className="text-sm font-black uppercase tracking-[0.35em] text-amber-400">
+              What we stand for
+            </p>
+            <h2 className="mt-4 text-3xl font-black tracking-tight">
+              A quieter, cleaner place to connect.
+            </h2>
+            <p className="mt-4 text-sm leading-7 text-zinc-400">
+              Kodiak Den is being built for people who want a personal social
+              space without the noise, manipulation, and creepy feeling that has
+              taken over the big platforms.
+            </p>
+
+            <div className="mt-6 grid gap-3">
+              {promises.map((promise) => (
+                <div
+                  key={promise}
+                  className="rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-bold text-zinc-200"
+                >
+                  {promise}
                 </div>
-
-                <div>
-                  <p className="font-black">Kodiak</p>
-                  <p className="text-sm text-zinc-500">Posting to The Trail · Public</p>
-                </div>
-              </div>
-
-              <p className="text-xl font-bold">
-                Building a better social space. Less noise. More Pack.
-              </p>
-
-              <div className="mt-5 rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-                <p className="text-sm font-bold text-amber-300">Inner Den Controls</p>
-                <div className="mt-3 grid gap-2 text-sm text-zinc-300">
-                  <div className="rounded-xl bg-zinc-950 px-4 py-3">Visibility: Public</div>
-                  <div className="rounded-xl bg-zinc-950 px-4 py-3">Comments: Pack only</div>
-                  <div className="rounded-xl bg-zinc-950 px-4 py-3">Tracking: Disabled</div>
-                </div>
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-3 text-sm font-bold text-zinc-400">
-                <span>Pawprints: 128</span>
-                <span>Comments: 24</span>
-                <span>Privacy-first</span>
-              </div>
+              ))}
             </div>
           </section>
         </div>
 
-        <section className="grid gap-4 pb-10 md:grid-cols-4">
-          {features.map((feature) => (
-            <div key={feature.title} className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-5">
-              <h2 className="font-black text-amber-300">{feature.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-zinc-400">{feature.description}</p>
+        <section className="grid gap-4 pb-10 md:grid-cols-3">
+          {principles.map((principle) => (
+            <div
+              key={principle.title}
+              className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-5"
+            >
+              <h2 className="font-black text-amber-300">{principle.title}</h2>
+              <p className="mt-2 text-sm leading-6 text-zinc-400">
+                {principle.description}
+              </p>
             </div>
           ))}
+        </section>
+
+        <section className="mb-10 rounded-[2rem] border border-amber-500/30 bg-amber-500/10 p-6">
+          <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.35em] text-amber-300">
+                Help build the Den
+              </p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight">
+                Support a social platform built around people, not tracking.
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">
+                Support links, community updates, and ways to help will live here
+                as Kodiak Den grows.
+              </p>
+            </div>
+            <Link
+              href="/support"
+              className="rounded-2xl bg-amber-500 px-6 py-4 text-center text-sm font-black text-zinc-950 transition hover:bg-amber-400"
+            >
+              Support Kodiak Den
+            </Link>
+          </div>
         </section>
       </section>
     </main>
