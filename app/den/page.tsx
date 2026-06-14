@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import kodiakDenLogo from "../../assets/kodiak-den-logo.png";
 
 type Visibility = "Public" | "Pack" | "Inner Den";
+type RoarReaction = "up" | "down" | null;
 
 type RoarComment = {
   id: string;
@@ -22,13 +23,22 @@ type Roar = {
   time: string;
   visibility: Visibility;
   text: string;
-  pawprints: number;
+  pawsUp: number;
+  pawsDown: number;
+  reaction: RoarReaction;
   comments: RoarComment[];
-  hasPawprinted: boolean;
 };
 
 const pack: string[] = [];
 const storageKey = "kodiak-den-local-roars";
+
+const navItems = [
+  { label: "The Trail", href: "/den" },
+  { label: "My Den", href: "/my-den" },
+  { label: "Pack", href: "/my-den" },
+  { label: "Inner Den", href: "/my-den" },
+  { label: "Settings", href: "/my-den" },
+];
 
 function KodiakBrand() {
   return (
@@ -99,7 +109,11 @@ function normalizeStoredRoars(rawRoars: unknown): Roar[] {
   return rawRoars
     .filter((rawRoar) => rawRoar && typeof rawRoar === "object")
     .map((rawRoar) => {
-      const storedRoar = rawRoar as Partial<Roar> & { comments?: unknown };
+      const storedRoar = rawRoar as Partial<Roar> & {
+        comments?: unknown;
+        pawprints?: number;
+        hasPawprinted?: boolean;
+      };
       const comments = Array.isArray(storedRoar.comments)
         ? storedRoar.comments.filter((comment): comment is RoarComment => {
             return Boolean(
@@ -113,6 +127,13 @@ function normalizeStoredRoars(rawRoars: unknown): Roar[] {
           })
         : [];
 
+      const legacyPawprints = typeof storedRoar.pawprints === "number" ? storedRoar.pawprints : 0;
+      const legacyReaction = storedRoar.hasPawprinted ? "up" : null;
+      const reaction =
+        storedRoar.reaction === "up" || storedRoar.reaction === "down"
+          ? storedRoar.reaction
+          : legacyReaction;
+
       return {
         id: storedRoar.id ?? crypto.randomUUID(),
         author: storedRoar.author ?? "Kodiak",
@@ -120,9 +141,10 @@ function normalizeStoredRoars(rawRoars: unknown): Roar[] {
         time: storedRoar.time ?? formatLocalTime(),
         visibility: storedRoar.visibility ?? "Public",
         text: storedRoar.text ?? "",
-        pawprints: storedRoar.pawprints ?? 0,
+        pawsUp: storedRoar.pawsUp ?? legacyPawprints,
+        pawsDown: storedRoar.pawsDown ?? 0,
+        reaction,
         comments,
-        hasPawprinted: storedRoar.hasPawprinted ?? false,
       };
     })
     .filter((roar) => roar.text.trim().length > 0);
@@ -172,28 +194,36 @@ export default function DenPage() {
       time: formatLocalTime(),
       visibility,
       text: cleanDraft,
-      pawprints: 0,
+      pawsUp: 0,
+      pawsDown: 0,
+      reaction: null,
       comments: [],
-      hasPawprinted: false,
     };
 
     setRoars((currentRoars) => [roar, ...currentRoars]);
     setDraft("");
   }
 
-  function togglePawprint(roarId: string) {
+  function reactToRoar(roarId: string, nextReaction: Exclude<RoarReaction, null>) {
     setRoars((currentRoars) =>
       currentRoars.map((roar) => {
         if (roar.id !== roarId) {
           return roar;
         }
 
-        const hasPawprinted = !roar.hasPawprinted;
+        const previousReaction = roar.reaction;
+        const isRemovingReaction = previousReaction === nextReaction;
+        const reaction = isRemovingReaction ? null : nextReaction;
+        const removePreviousUp = previousReaction === "up" ? 1 : 0;
+        const removePreviousDown = previousReaction === "down" ? 1 : 0;
+        const addNextUp = !isRemovingReaction && nextReaction === "up" ? 1 : 0;
+        const addNextDown = !isRemovingReaction && nextReaction === "down" ? 1 : 0;
 
         return {
           ...roar,
-          hasPawprinted,
-          pawprints: hasPawprinted ? roar.pawprints + 1 : Math.max(0, roar.pawprints - 1),
+          reaction,
+          pawsUp: Math.max(0, roar.pawsUp - removePreviousUp + addNextUp),
+          pawsDown: Math.max(0, roar.pawsDown - removePreviousDown + addNextDown),
         };
       }),
     );
@@ -267,13 +297,18 @@ export default function DenPage() {
             <KodiakBrand />
 
             <nav className="rounded-3xl border border-zinc-800 bg-zinc-950/80 p-3">
-              {["The Trail", "My Den", "Pack", "Inner Den", "Settings"].map((item) => (
-                <div
-                  key={item}
-                  className="rounded-2xl px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-zinc-900 hover:text-amber-300"
+              {navItems.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={
+                    item.label === "The Trail"
+                      ? "block rounded-2xl bg-amber-500/10 px-4 py-3 text-sm font-black text-amber-300 ring-1 ring-amber-500/20"
+                      : "block rounded-2xl px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-zinc-900 hover:text-amber-300"
+                  }
                 >
-                  {item}
-                </div>
+                  {item.label}
+                </Link>
               ))}
             </nav>
           </div>
@@ -390,14 +425,24 @@ export default function DenPage() {
 
                     <div className="mt-5 flex flex-wrap gap-3 text-sm font-black text-zinc-400">
                       <button
-                        onClick={() => togglePawprint(roar.id)}
+                        onClick={() => reactToRoar(roar.id, "up")}
                         className={
-                          roar.hasPawprinted
+                          roar.reaction === "up"
                             ? "rounded-full border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-amber-300 transition hover:border-amber-400"
                             : "rounded-full border border-zinc-800 px-4 py-2 transition hover:border-amber-500 hover:text-amber-300"
                         }
                       >
-                        🐾 {roar.pawprints} Pawprints
+                        🐾↑ {roar.pawsUp} Paws Up
+                      </button>
+                      <button
+                        onClick={() => reactToRoar(roar.id, "down")}
+                        className={
+                          roar.reaction === "down"
+                            ? "rounded-full border border-red-500/40 bg-red-500/10 px-4 py-2 text-red-300 transition hover:border-red-400"
+                            : "rounded-full border border-zinc-800 px-4 py-2 transition hover:border-red-500/60 hover:text-red-300"
+                        }
+                      >
+                        🐾↓ {roar.pawsDown} Paws Down
                       </button>
                       <button
                         onClick={() => toggleComments(roar.id)}
@@ -489,7 +534,7 @@ export default function DenPage() {
             <section className="rounded-[2rem] border border-amber-500/20 bg-amber-500/10 p-5">
               <h2 className="text-lg font-black text-amber-300">Privacy Check</h2>
               <div className="mt-4 space-y-3 text-sm font-bold text-zinc-300">
-                <p>✓ Local-only Roars and comments</p>
+                <p>✓ Local-only Roars, comments, and reactions</p>
                 <p>✓ Visibility before posting</p>
                 <p>✓ No third-party trackers</p>
                 <p>✓ Export/delete planned</p>
