@@ -1,19 +1,26 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import kodiakDenLogo from "../../assets/kodiak-den-logo.png";
 
+type Visibility = "Public" | "Pack" | "Inner Den";
+
 type Roar = {
+  id: string;
   author: string;
   handle: string;
   time: string;
-  visibility: string;
+  visibility: Visibility;
   text: string;
   pawprints: number;
   comments: number;
+  hasPawprinted: boolean;
 };
 
-const roars: Roar[] = [];
 const pack: string[] = [];
+const storageKey = "kodiak-den-local-roars";
 
 function KodiakBrand() {
   return (
@@ -42,12 +49,10 @@ function KodiakBrand() {
   );
 }
 
-function VisibilityBadge({ visibility }: { visibility: string }) {
-  const label = visibility === "Inner Den" ? "Inner Den" : visibility;
-
+function VisibilityBadge({ visibility }: { visibility: Visibility }) {
   return (
     <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-300">
-      {label}
+      {visibility}
     </span>
   );
 }
@@ -71,7 +76,87 @@ function EmptyTrail() {
   );
 }
 
+function formatLocalTime() {
+  return new Intl.DateTimeFormat("en", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date());
+}
+
 export default function DenPage() {
+  const [draft, setDraft] = useState("");
+  const [visibility, setVisibility] = useState<Visibility>("Public");
+  const [roars, setRoars] = useState<Roar[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    const savedRoars = window.localStorage.getItem(storageKey);
+
+    if (savedRoars) {
+      try {
+        setRoars(JSON.parse(savedRoars) as Roar[]);
+      } catch {
+        window.localStorage.removeItem(storageKey);
+      }
+    }
+
+    setIsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded) {
+      return;
+    }
+
+    window.localStorage.setItem(storageKey, JSON.stringify(roars));
+  }, [isLoaded, roars]);
+
+  function createRoar() {
+    const cleanDraft = draft.trim();
+
+    if (!cleanDraft) {
+      return;
+    }
+
+    const roar: Roar = {
+      id: crypto.randomUUID(),
+      author: "Kodiak",
+      handle: "@kodiak",
+      time: formatLocalTime(),
+      visibility,
+      text: cleanDraft,
+      pawprints: 0,
+      comments: 0,
+      hasPawprinted: false,
+    };
+
+    setRoars((currentRoars) => [roar, ...currentRoars]);
+    setDraft("");
+  }
+
+  function togglePawprint(roarId: string) {
+    setRoars((currentRoars) =>
+      currentRoars.map((roar) => {
+        if (roar.id !== roarId) {
+          return roar;
+        }
+
+        const hasPawprinted = !roar.hasPawprinted;
+
+        return {
+          ...roar,
+          hasPawprinted,
+          pawprints: hasPawprinted ? roar.pawprints + 1 : Math.max(0, roar.pawprints - 1),
+        };
+      }),
+    );
+  }
+
+  function clearLocalTrail() {
+    setRoars([]);
+    window.localStorage.removeItem(storageKey);
+  }
+
   return (
     <main className="min-h-screen bg-[#050608] text-zinc-100">
       <div className="mx-auto grid w-full max-w-7xl gap-6 px-6 py-6 lg:grid-cols-[240px_1fr_320px]">
@@ -124,18 +209,36 @@ export default function DenPage() {
             </div>
 
             <textarea
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
               placeholder="What's happening on your trail?"
               className="min-h-32 w-full resize-none rounded-3xl border border-zinc-800 bg-zinc-900 p-4 text-sm font-medium text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500"
             />
 
             <div className="mt-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <div className="flex flex-wrap gap-2">
-                <VisibilityBadge visibility="Public" />
-                <span className="rounded-full border border-zinc-800 px-3 py-1 text-xs font-bold text-zinc-400">Image</span>
-                <span className="rounded-full border border-zinc-800 px-3 py-1 text-xs font-bold text-zinc-400">Link</span>
+                {(["Public", "Pack", "Inner Den"] as Visibility[]).map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => setVisibility(option)}
+                    className={
+                      option === visibility
+                        ? "rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-300"
+                        : "rounded-full border border-zinc-800 px-3 py-1 text-xs font-bold text-zinc-400 transition hover:border-amber-500/40 hover:text-amber-300"
+                    }
+                  >
+                    {option}
+                  </button>
+                ))}
+                <span className="rounded-full border border-zinc-800 px-3 py-1 text-xs font-bold text-zinc-600">Image soon</span>
+                <span className="rounded-full border border-zinc-800 px-3 py-1 text-xs font-bold text-zinc-600">Link soon</span>
               </div>
 
-              <button className="rounded-2xl bg-amber-500 px-6 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-400">
+              <button
+                onClick={createRoar}
+                disabled={draft.trim().length === 0}
+                className="rounded-2xl bg-amber-500 px-6 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+              >
                 Roar
               </button>
             </div>
@@ -144,41 +247,62 @@ export default function DenPage() {
           {roars.length === 0 ? (
             <EmptyTrail />
           ) : (
-            roars.map((roar) => (
-              <article key={`${roar.handle}-${roar.time}`} className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="grid h-12 w-12 place-items-center rounded-2xl bg-zinc-900 text-xl ring-1 ring-zinc-800">
-                      🐻
-                    </div>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-black">{roar.author}</p>
-                        <p className="text-sm text-zinc-500">{roar.handle}</p>
-                        <p className="text-sm text-zinc-600">· {roar.time}</p>
+            <div className="space-y-5">
+              <div className="flex items-center justify-between rounded-3xl border border-zinc-800 bg-zinc-950/70 px-5 py-3">
+                <p className="text-sm font-bold text-zinc-500">
+                  {roars.length} local Roar{roars.length === 1 ? "" : "s"} on this device.
+                </p>
+                <button
+                  onClick={clearLocalTrail}
+                  className="text-xs font-black text-zinc-600 transition hover:text-red-300"
+                >
+                  Clear local Trail
+                </button>
+              </div>
+
+              {roars.map((roar) => (
+                <article key={roar.id} className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="grid h-12 w-12 place-items-center rounded-2xl bg-zinc-900 text-xl ring-1 ring-zinc-800">
+                        🐻
                       </div>
-                      <div className="mt-2">
-                        <VisibilityBadge visibility={roar.visibility} />
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-black">{roar.author}</p>
+                          <p className="text-sm text-zinc-500">{roar.handle}</p>
+                          <p className="text-sm text-zinc-600">· {roar.time}</p>
+                        </div>
+                        <div className="mt-2">
+                          <VisibilityBadge visibility={roar.visibility} />
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <p className="mt-5 text-lg font-semibold leading-8 text-zinc-100">{roar.text}</p>
+                  <p className="mt-5 whitespace-pre-wrap text-lg font-semibold leading-8 text-zinc-100">{roar.text}</p>
 
-                <div className="mt-5 flex flex-wrap gap-3 text-sm font-black text-zinc-400">
-                  <button className="rounded-full border border-zinc-800 px-4 py-2 transition hover:border-amber-500 hover:text-amber-300">
-                    🐾 {roar.pawprints} Pawprints
-                  </button>
-                  <button className="rounded-full border border-zinc-800 px-4 py-2 transition hover:border-amber-500 hover:text-amber-300">
-                    💬 {roar.comments} Comments
-                  </button>
-                  <button className="rounded-full border border-zinc-800 px-4 py-2 transition hover:border-amber-500 hover:text-amber-300">
-                    Share
-                  </button>
-                </div>
-              </article>
-            ))
+                  <div className="mt-5 flex flex-wrap gap-3 text-sm font-black text-zinc-400">
+                    <button
+                      onClick={() => togglePawprint(roar.id)}
+                      className={
+                        roar.hasPawprinted
+                          ? "rounded-full border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-amber-300 transition hover:border-amber-400"
+                          : "rounded-full border border-zinc-800 px-4 py-2 transition hover:border-amber-500 hover:text-amber-300"
+                      }
+                    >
+                      🐾 {roar.pawprints} Pawprints
+                    </button>
+                    <button className="rounded-full border border-zinc-800 px-4 py-2 text-zinc-600">
+                      💬 {roar.comments} Comments soon
+                    </button>
+                    <button className="rounded-full border border-zinc-800 px-4 py-2 text-zinc-600">
+                      Share soon
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
           )}
         </section>
 
@@ -210,7 +334,7 @@ export default function DenPage() {
             <section className="rounded-[2rem] border border-amber-500/20 bg-amber-500/10 p-5">
               <h2 className="text-lg font-black text-amber-300">Privacy Check</h2>
               <div className="mt-4 space-y-3 text-sm font-bold text-zinc-300">
-                <p>✓ Chronological feed</p>
+                <p>✓ Local-only Roars for now</p>
                 <p>✓ Visibility before posting</p>
                 <p>✓ No third-party trackers</p>
                 <p>✓ Export/delete planned</p>
