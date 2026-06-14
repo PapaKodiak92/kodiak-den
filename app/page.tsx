@@ -95,27 +95,6 @@ export default function Home() {
               comments, Paws Up, Paws Down, and trusted circles. Build your Den,
               walk The Trail, and share with the people you choose.
             </p>
-
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/my-den"
-                className="rounded-2xl bg-amber-500 px-7 py-4 text-center text-base font-black text-zinc-950 transition hover:bg-amber-400"
-              >
-                Create Your Den
-              </Link>
-              <Link
-                href="/den"
-                className="rounded-2xl border border-zinc-800 px-7 py-4 text-center text-base font-bold text-zinc-200 transition hover:border-amber-500 hover:text-amber-300"
-              >
-                Explore The Trail
-              </Link>
-              <Link
-                href="/support"
-                className="rounded-2xl border border-zinc-800 px-7 py-4 text-center text-base font-bold text-zinc-200 transition hover:border-amber-500 hover:text-amber-300"
-              >
-                Need Support?
-              </Link>
-            </div>
           </section>
 
           <section className="rounded-[2rem] border border-zinc-800 bg-zinc-900/60 p-6 shadow-2xl shadow-black/40">
