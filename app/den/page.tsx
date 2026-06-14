@@ -7,6 +7,14 @@ import kodiakDenLogo from "../../assets/kodiak-den-logo.png";
 
 type Visibility = "Public" | "Pack" | "Inner Den";
 
+type RoarComment = {
+  id: string;
+  author: string;
+  handle: string;
+  time: string;
+  text: string;
+};
+
 type Roar = {
   id: string;
   author: string;
@@ -15,7 +23,7 @@ type Roar = {
   visibility: Visibility;
   text: string;
   pawprints: number;
-  comments: number;
+  comments: RoarComment[];
   hasPawprinted: boolean;
 };
 
@@ -83,18 +91,57 @@ function formatLocalTime() {
   }).format(new Date());
 }
 
+function normalizeStoredRoars(rawRoars: unknown): Roar[] {
+  if (!Array.isArray(rawRoars)) {
+    return [];
+  }
+
+  return rawRoars
+    .filter((rawRoar) => rawRoar && typeof rawRoar === "object")
+    .map((rawRoar) => {
+      const storedRoar = rawRoar as Partial<Roar> & { comments?: unknown };
+      const comments = Array.isArray(storedRoar.comments)
+        ? storedRoar.comments.filter((comment): comment is RoarComment => {
+            return Boolean(
+              comment &&
+                typeof comment === "object" &&
+                "id" in comment &&
+                "text" in comment &&
+                typeof (comment as RoarComment).id === "string" &&
+                typeof (comment as RoarComment).text === "string",
+            );
+          })
+        : [];
+
+      return {
+        id: storedRoar.id ?? crypto.randomUUID(),
+        author: storedRoar.author ?? "Kodiak",
+        handle: storedRoar.handle ?? "@kodiak",
+        time: storedRoar.time ?? formatLocalTime(),
+        visibility: storedRoar.visibility ?? "Public",
+        text: storedRoar.text ?? "",
+        pawprints: storedRoar.pawprints ?? 0,
+        comments,
+        hasPawprinted: storedRoar.hasPawprinted ?? false,
+      };
+    })
+    .filter((roar) => roar.text.trim().length > 0);
+}
+
 export default function DenPage() {
   const [draft, setDraft] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("Public");
   const [roars, setRoars] = useState<Roar[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [openCommentRoarIds, setOpenCommentRoarIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const savedRoars = window.localStorage.getItem(storageKey);
 
     if (savedRoars) {
       try {
-        setRoars(JSON.parse(savedRoars) as Roar[]);
+        setRoars(normalizeStoredRoars(JSON.parse(savedRoars)));
       } catch {
         window.localStorage.removeItem(storageKey);
       }
@@ -126,7 +173,7 @@ export default function DenPage() {
       visibility,
       text: cleanDraft,
       pawprints: 0,
-      comments: 0,
+      comments: [],
       hasPawprinted: false,
     };
 
@@ -152,8 +199,63 @@ export default function DenPage() {
     );
   }
 
+  function toggleComments(roarId: string) {
+    setOpenCommentRoarIds((currentOpenIds) => ({
+      ...currentOpenIds,
+      [roarId]: !currentOpenIds[roarId],
+    }));
+  }
+
+  function updateCommentDraft(roarId: string, value: string) {
+    setCommentDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [roarId]: value,
+    }));
+  }
+
+  function createComment(roarId: string) {
+    const cleanComment = (commentDrafts[roarId] ?? "").trim();
+
+    if (!cleanComment) {
+      return;
+    }
+
+    const comment: RoarComment = {
+      id: crypto.randomUUID(),
+      author: "Kodiak",
+      handle: "@kodiak",
+      time: formatLocalTime(),
+      text: cleanComment,
+    };
+
+    setRoars((currentRoars) =>
+      currentRoars.map((roar) => {
+        if (roar.id !== roarId) {
+          return roar;
+        }
+
+        return {
+          ...roar,
+          comments: [...roar.comments, comment],
+        };
+      }),
+    );
+
+    setCommentDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [roarId]: "",
+    }));
+
+    setOpenCommentRoarIds((currentOpenIds) => ({
+      ...currentOpenIds,
+      [roarId]: true,
+    }));
+  }
+
   function clearLocalTrail() {
     setRoars([]);
+    setCommentDrafts({});
+    setOpenCommentRoarIds({});
     window.localStorage.removeItem(storageKey);
   }
 
@@ -260,48 +362,101 @@ export default function DenPage() {
                 </button>
               </div>
 
-              {roars.map((roar) => (
-                <article key={roar.id} className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <div className="grid h-12 w-12 place-items-center rounded-2xl bg-zinc-900 text-xl ring-1 ring-zinc-800">
-                        🐻
-                      </div>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-black">{roar.author}</p>
-                          <p className="text-sm text-zinc-500">{roar.handle}</p>
-                          <p className="text-sm text-zinc-600">· {roar.time}</p>
+              {roars.map((roar) => {
+                const isCommentPanelOpen = Boolean(openCommentRoarIds[roar.id]);
+                const commentDraft = commentDrafts[roar.id] ?? "";
+
+                return (
+                  <article key={roar.id} className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-zinc-900 text-xl ring-1 ring-zinc-800">
+                          🐻
                         </div>
-                        <div className="mt-2">
-                          <VisibilityBadge visibility={roar.visibility} />
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-black">{roar.author}</p>
+                            <p className="text-sm text-zinc-500">{roar.handle}</p>
+                            <p className="text-sm text-zinc-600">· {roar.time}</p>
+                          </div>
+                          <div className="mt-2">
+                            <VisibilityBadge visibility={roar.visibility} />
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <p className="mt-5 whitespace-pre-wrap text-lg font-semibold leading-8 text-zinc-100">{roar.text}</p>
+                    <p className="mt-5 whitespace-pre-wrap text-lg font-semibold leading-8 text-zinc-100">{roar.text}</p>
 
-                  <div className="mt-5 flex flex-wrap gap-3 text-sm font-black text-zinc-400">
-                    <button
-                      onClick={() => togglePawprint(roar.id)}
-                      className={
-                        roar.hasPawprinted
-                          ? "rounded-full border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-amber-300 transition hover:border-amber-400"
-                          : "rounded-full border border-zinc-800 px-4 py-2 transition hover:border-amber-500 hover:text-amber-300"
-                      }
-                    >
-                      🐾 {roar.pawprints} Pawprints
-                    </button>
-                    <button className="rounded-full border border-zinc-800 px-4 py-2 text-zinc-600">
-                      💬 {roar.comments} Comments soon
-                    </button>
-                    <button className="rounded-full border border-zinc-800 px-4 py-2 text-zinc-600">
-                      Share soon
-                    </button>
-                  </div>
-                </article>
-              ))}
+                    <div className="mt-5 flex flex-wrap gap-3 text-sm font-black text-zinc-400">
+                      <button
+                        onClick={() => togglePawprint(roar.id)}
+                        className={
+                          roar.hasPawprinted
+                            ? "rounded-full border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-amber-300 transition hover:border-amber-400"
+                            : "rounded-full border border-zinc-800 px-4 py-2 transition hover:border-amber-500 hover:text-amber-300"
+                        }
+                      >
+                        🐾 {roar.pawprints} Pawprints
+                      </button>
+                      <button
+                        onClick={() => toggleComments(roar.id)}
+                        className="rounded-full border border-zinc-800 px-4 py-2 transition hover:border-amber-500 hover:text-amber-300"
+                      >
+                        💬 {roar.comments.length} Comment{roar.comments.length === 1 ? "" : "s"}
+                      </button>
+                      <button className="rounded-full border border-zinc-800 px-4 py-2 text-zinc-600">
+                        Share soon
+                      </button>
+                    </div>
+
+                    {isCommentPanelOpen ? (
+                      <section className="mt-5 rounded-3xl border border-zinc-800 bg-zinc-900/40 p-4">
+                        <div className="space-y-3">
+                          {roar.comments.length === 0 ? (
+                            <p className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/50 p-4 text-sm font-bold text-zinc-500">
+                              No comments yet. Start the conversation locally.
+                            </p>
+                          ) : (
+                            roar.comments.map((comment) => (
+                              <div key={comment.id} className="rounded-2xl bg-zinc-950 p-4 ring-1 ring-zinc-800">
+                                <div className="flex flex-wrap items-center gap-2 text-sm">
+                                  <p className="font-black text-zinc-100">{comment.author}</p>
+                                  <p className="text-zinc-500">{comment.handle}</p>
+                                  <p className="text-zinc-600">· {comment.time}</p>
+                                </div>
+                                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-300">{comment.text}</p>
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                          <input
+                            value={commentDraft}
+                            onChange={(event) => updateCommentDraft(roar.id, event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" && !event.shiftKey) {
+                                event.preventDefault();
+                                createComment(roar.id);
+                              }
+                            }}
+                            placeholder="Write a comment..."
+                            className="min-h-12 flex-1 rounded-2xl border border-zinc-800 bg-zinc-950 px-4 text-sm font-medium text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500"
+                          />
+                          <button
+                            onClick={() => createComment(roar.id)}
+                            disabled={commentDraft.trim().length === 0}
+                            className="rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+                          >
+                            Comment
+                          </button>
+                        </div>
+                      </section>
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
@@ -334,7 +489,7 @@ export default function DenPage() {
             <section className="rounded-[2rem] border border-amber-500/20 bg-amber-500/10 p-5">
               <h2 className="text-lg font-black text-amber-300">Privacy Check</h2>
               <div className="mt-4 space-y-3 text-sm font-bold text-zinc-300">
-                <p>✓ Local-only Roars for now</p>
+                <p>✓ Local-only Roars and comments</p>
                 <p>✓ Visibility before posting</p>
                 <p>✓ No third-party trackers</p>
                 <p>✓ Export/delete planned</p>
