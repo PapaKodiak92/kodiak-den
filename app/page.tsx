@@ -29,7 +29,7 @@ export default function Home() {
             src={kodiakDenLogo}
             alt="Kodiak Den logo"
             priority
-            className="h-auto w-36 object-contain sm:w-44"
+            className="h-auto w-44 object-contain sm:w-56"
           />
 
           <div className="hidden items-center gap-3 sm:flex">
@@ -71,12 +71,9 @@ export default function Home() {
           <section className="rounded-[2rem] border border-zinc-800 bg-zinc-900/70 p-5 shadow-2xl shadow-black/40">
             <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-950 p-5">
               <div className="mb-5 flex items-center gap-4">
-                <Image
-                  src={kodiakDenLogo}
-                  alt="Kodiak Den logo mark"
-                  priority
-                  className="h-14 w-14 rounded-2xl object-cover object-top ring-1 ring-amber-500/20"
-                />
+                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-amber-500/10 text-2xl ring-1 ring-amber-500/20">
+                  🐾
+                </div>
 
                 <div>
                   <p className="font-black">Kodiak</p>
