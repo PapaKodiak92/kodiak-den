@@ -3,39 +3,23 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import {
+  accountStorageKey,
+  cleanHandle,
+  createCredential,
+  legacyRoarsStorageKey,
+  passwordAllowed,
+  profileStorageKey,
+  securityInboxKey,
+  writeAccount,
+} from "../../lib/localAuth";
 
 type ProfileVisibility = "Public" | "Pack only" | "Private";
-
-const profileStorageKey = "kodiak-den-local-profile";
-const accountStorageKey = "kodiak-den-account";
-const legacyRoarsStorageKey = "kodiak-den-local-roars";
-const inboxKey = "kodiak-den-security-inbox";
-
-function cleanHandle(value: string) {
-  const cleaned = value.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9_@-]/g, "");
-  return cleaned ? (cleaned.startsWith("@") ? cleaned : `@${cleaned}`) : "@kodiak";
-}
-
-function strongEnough(value: string) {
-  return value.length >= 12 && /[a-z]/.test(value) && /[A-Z]/.test(value) && /[0-9]/.test(value) && /[^A-Za-z0-9]/.test(value);
-}
 
 function makeCode() {
   const values = new Uint32Array(1);
   window.crypto.getRandomValues(values);
   return String(values[0] % 1_000_000).padStart(6, "0");
-}
-
-function makeSalt() {
-  const values = new Uint8Array(16);
-  window.crypto.getRandomValues(values);
-  return Array.from(values).map((value) => value.toString(16).padStart(2, "0")).join("");
-}
-
-async function makeDigest(secret: string, salt: string) {
-  const data = new TextEncoder().encode(`${salt}:${secret}`);
-  const digest = await window.crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, "0")).join("");
 }
 
 export default function CreateDenPage() {
@@ -61,12 +45,11 @@ export default function CreateDenPage() {
 
       if (!name) return setError("Add a display name for your Den.");
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail)) return setError("Use a valid email address.");
-      if (!strongEnough(password)) return setError("Use 12+ characters with uppercase, lowercase, number, and symbol.");
+      if (!passwordAllowed(password)) return setError("Use at least 6 characters.");
       if (password !== confirmPassword) return setError("Passwords do not match.");
 
       const verificationCode = makeCode();
-      const credentialSalt = makeSalt();
-      const credentialHash = await makeDigest(password, credentialSalt);
+      const { credentialHash, credentialSalt } = await createCredential(password);
       const profile = {
         displayName: name.slice(0, 40),
         handle: cleanedHandle,
@@ -81,22 +64,19 @@ export default function CreateDenPage() {
       window.localStorage.setItem(`kodiak-den-roars:${cleanedHandle}`, "[]");
       window.localStorage.setItem(`kodiak-den-profile:${cleanedHandle}`, JSON.stringify(profile));
       window.localStorage.setItem(profileStorageKey, JSON.stringify(profile));
-      window.localStorage.setItem(
-        accountStorageKey,
-        JSON.stringify({
-          email: accountEmail,
-          handle: cleanedHandle,
-          displayName: name.slice(0, 40),
-          credentialHash,
-          credentialSalt,
-          emailVerified: false,
-          verificationCode,
-          verificationExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
-          failedSignInAttempts: 0,
-          createdAt: new Date().toISOString(),
-        }),
-      );
-      window.sessionStorage.setItem(inboxKey, JSON.stringify({ kind: "verify", code: verificationCode, email: accountEmail }));
+      writeAccount({
+        email: accountEmail,
+        handle: cleanedHandle,
+        displayName: name.slice(0, 40),
+        credentialHash,
+        credentialSalt,
+        emailVerified: false,
+        verificationCode,
+        verificationExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+        failedSignInAttempts: 0,
+        createdAt: new Date().toISOString(),
+      });
+      window.sessionStorage.setItem(securityInboxKey, JSON.stringify({ kind: "verify", code: verificationCode, email: accountEmail }));
 
       router.push("/verify-email");
     } finally {
@@ -154,7 +134,7 @@ export default function CreateDenPage() {
             </label>
           </div>
 
-          <p className="mt-4 text-xs leading-5 text-zinc-500">Use 12+ characters with uppercase, lowercase, number, and symbol.</p>
+          <p className="mt-4 text-xs leading-5 text-zinc-500">Password must be at least 6 characters.</p>
           {error ? <p className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300">{error}</p> : null}
 
           <button disabled={busy} className="mt-6 w-full rounded-2xl bg-amber-500 px-6 py-4 text-sm font-black text-zinc-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60">
