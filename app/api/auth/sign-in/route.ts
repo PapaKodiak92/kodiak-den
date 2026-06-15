@@ -10,6 +10,13 @@ type SignInBody = {
   password?: unknown;
 };
 
+type SignInFailure = {
+  error: string;
+  status: number;
+  code?: string;
+  user?: unknown;
+};
+
 export async function POST(request: Request) {
   let body: SignInBody;
 
@@ -28,7 +35,9 @@ export async function POST(request: Request) {
   const result = signIn(identifier, password);
 
   if (!result.ok) {
-    if (result.code === "EMAIL_UNVERIFIED") {
+    const failure = result as SignInFailure;
+
+    if (failure.code === "EMAIL_UNVERIFIED") {
       const verification = issueVerification(identifier);
 
       if (verification.ok) {
@@ -41,8 +50,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { error: result.error, code: result.code, account: result.user },
-      { status: result.status },
+      { error: failure.error, code: failure.code, account: failure.user },
+      { status: failure.status },
     );
   }
 
