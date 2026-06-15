@@ -12,7 +12,7 @@ export default function ResetPasswordPage() {
   function reset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (code.trim().length !== 6) return setMessage("Enter the six-digit reset code.");
-    if (newPassword.length < 12) return setMessage("Use at least 12 characters.");
+    if (newPassword.length < 6) return setMessage("Use at least 6 characters.");
     if (newPassword !== confirmPassword) return setMessage("Passwords do not match.");
     setMessage("Your password has been reset. You can sign in now.");
   }
@@ -40,6 +40,7 @@ export default function ResetPasswordPage() {
               <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-bold outline-none focus:border-amber-500" />
             </label>
           </div>
+          <p className="mt-4 text-xs leading-5 text-zinc-500">Password must be at least 6 characters.</p>
           {message ? <p className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-200">{message}</p> : null}
           <button className="mt-6 w-full rounded-2xl bg-amber-500 px-6 py-4 text-sm font-black text-zinc-950 transition hover:bg-amber-400">
             Reset Password
