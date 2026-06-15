@@ -2,8 +2,12 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { identifierMatches, issuePasswordReset, readAccount } from "../../lib/localAuth";
-import { sendSecurityCodeEmail } from "../../lib/securityEmail";
+
+type ForgotPasswordResponse = {
+  error?: string;
+};
+
+const pendingResetKey = "kodiak-den-pending-reset";
 
 export default function ForgotPasswordPage() {
   const [identifier, setIdentifier] = useState("");
@@ -21,28 +25,19 @@ export default function ForgotPasswordPage() {
       const value = identifier.trim();
       if (!value) return setError("Enter your email or handle.");
 
-      const account = readAccount();
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: value }),
+      });
+      const result = (await response.json()) as ForgotPasswordResponse;
 
-      if (account && identifierMatches(account, value)) {
-        const updated = issuePasswordReset(account);
-
-        if (!updated.resetCode) {
-          setError("Could not create a reset code.");
-          return;
-        }
-
-        const emailResult = await sendSecurityCodeEmail({
-          email: updated.email,
-          code: updated.resetCode,
-          kind: "reset",
-        });
-
-        if (!emailResult.ok) {
-          setError(emailResult.error || "Could not send reset email.");
-          return;
-        }
+      if (!response.ok) {
+        setError(result.error || "Could not send reset email.");
+        return;
       }
 
+      window.localStorage.setItem(pendingResetKey, value);
       setSent(true);
     } finally {
       setBusy(false);
