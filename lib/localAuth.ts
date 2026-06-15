@@ -20,7 +20,6 @@ export const accountStorageKey = "kodiak-den-account";
 export const sessionStorageKey = "kodiak-den-session";
 export const profileStorageKey = "kodiak-den-local-profile";
 export const legacyRoarsStorageKey = "kodiak-den-local-roars";
-export const securityInboxKey = "kodiak-den-security-inbox";
 
 export function cleanHandle(value: string) {
   const cleaned = value.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9_@-]/g, "");
@@ -122,7 +121,6 @@ export function issueEmailVerification(account: LocalAccount) {
   };
 
   writeAccount(updated);
-  window.sessionStorage.setItem(securityInboxKey, JSON.stringify({ kind: "verify", code: verificationCode, email: account.email }));
   return updated;
 }
 
@@ -135,17 +133,5 @@ export function issuePasswordReset(account: LocalAccount) {
   };
 
   writeAccount(updated);
-  window.sessionStorage.setItem(securityInboxKey, JSON.stringify({ kind: "reset", code: resetCode, email: account.email }));
   return updated;
-}
-
-export function readSecurityInbox() {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const saved = window.sessionStorage.getItem(securityInboxKey);
-    return saved ? (JSON.parse(saved) as { kind?: string; code?: string; email?: string }) : null;
-  } catch {
-    return null;
-  }
 }
