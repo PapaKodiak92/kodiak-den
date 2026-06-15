@@ -26,16 +26,62 @@ type Roar = {
   comments: Comment[];
 };
 
-const storageKey = "kodiak-den-local-roars";
+type Profile = {
+  displayName: string;
+  handle: string;
+  avatarImage: string | null;
+};
+
+const legacyRoarsStorageKey = "kodiak-den-local-roars";
+const profileStorageKey = "kodiak-den-local-profile";
+const accountStorageKey = "kodiak-den-account";
+const sessionStorageKey = "kodiak-den-session";
 const visibilityOptions: Visibility[] = ["Public", "Pack", "Inner Den"];
 const navItems = [
   { label: "The Trail", href: "/den" },
   { label: "My Den", href: "/my-den" },
-  { label: "Pack", href: "/pack" },
 ];
+
+const defaultProfile: Profile = {
+  displayName: "Kodiak",
+  handle: "@kodiak",
+  avatarImage: null,
+};
 
 function now() {
   return new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(new Date());
+}
+
+function cleanHandle(value: string) {
+  const cleaned = value.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9_@-]/g, "");
+  return cleaned ? (cleaned.startsWith("@") ? cleaned : `@${cleaned}`) : "@kodiak";
+}
+
+function accountScopedKey(prefix: string, handle: string) {
+  return `${prefix}:${cleanHandle(handle)}`;
+}
+
+function readStoredObject<T>(key: string): Partial<T> | null {
+  try {
+    const saved = window.localStorage.getItem(key);
+    return saved ? (JSON.parse(saved) as Partial<T>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function readProfile(): Profile {
+  const savedProfile = readStoredObject<Profile>(profileStorageKey);
+  const savedAccount = readStoredObject<{ handle: string }>(accountStorageKey);
+  const savedSession = readStoredObject<{ handle?: string; identifier?: string }>(sessionStorageKey);
+
+  const handle = cleanHandle(savedSession?.handle ?? savedSession?.identifier ?? savedProfile?.handle ?? savedAccount?.handle ?? defaultProfile.handle);
+
+  return {
+    displayName: typeof savedProfile?.displayName === "string" && savedProfile.displayName.trim() ? savedProfile.displayName.trim() : handle.replace("@", ""),
+    handle,
+    avatarImage: typeof savedProfile?.avatarImage === "string" && savedProfile.avatarImage.startsWith("data:image/") ? savedProfile.avatarImage : null,
+  };
 }
 
 function KodiakBrand() {
@@ -63,8 +109,12 @@ function VisibilityPill({ value }: { value: Visibility }) {
   return <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-300">{value}</span>;
 }
 
-function Avatar() {
-  return <div className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-500/10 font-black text-amber-300 ring-1 ring-amber-500/20">KD</div>;
+function Avatar({ profile }: { profile: Profile }) {
+  return (
+    <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-2xl bg-amber-500/10 font-black text-amber-300 ring-1 ring-amber-500/20">
+      {profile.avatarImage ? <img src={profile.avatarImage} alt="" className="h-full w-full object-cover" /> : profile.displayName.slice(0, 2).toUpperCase()}
+    </div>
+  );
 }
 
 function normalizeRoars(value: unknown): Roar[] {
@@ -94,6 +144,8 @@ function normalizeRoars(value: unknown): Roar[] {
 
 export default function DenPage() {
   const [isReady, setIsReady] = useState(false);
+  const [roarsKey, setRoarsKey] = useState("");
+  const [profile, setProfile] = useState<Profile>(defaultProfile);
   const [roars, setRoars] = useState<Roar[]>([]);
   const [draft, setDraft] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("Public");
@@ -104,20 +156,27 @@ export default function DenPage() {
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(storageKey);
+    const nextProfile = readProfile();
+    const nextRoarsKey = accountScopedKey("kodiak-den-roars", nextProfile.handle);
+
+    setProfile(nextProfile);
+    setRoarsKey(nextRoarsKey);
+    window.localStorage.removeItem(legacyRoarsStorageKey);
+
+    const saved = window.localStorage.getItem(nextRoarsKey);
     if (saved) {
       try {
         setRoars(normalizeRoars(JSON.parse(saved)));
       } catch {
-        window.localStorage.removeItem(storageKey);
+        window.localStorage.removeItem(nextRoarsKey);
       }
     }
     setIsReady(true);
   }, []);
 
   useEffect(() => {
-    if (isReady) window.localStorage.setItem(storageKey, JSON.stringify(roars));
-  }, [isReady, roars]);
+    if (isReady && roarsKey) window.localStorage.setItem(roarsKey, JSON.stringify(roars));
+  }, [isReady, roars, roarsKey]);
 
   function createRoar() {
     const text = draft.trim();
@@ -217,10 +276,10 @@ export default function DenPage() {
 
           <section className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
             <div className="mb-4 flex items-center gap-4">
-              <Avatar />
+              <Avatar profile={profile} />
               <div>
                 <p className="font-black">Create a Roar</p>
-                <p className="text-sm text-zinc-500">Posting as Kodiak</p>
+                <p className="text-sm text-zinc-500">Posting as {profile.displayName}</p>
               </div>
             </div>
             <textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="What's happening on your trail?" className="min-h-32 w-full resize-none rounded-3xl border border-zinc-800 bg-zinc-900 p-4 text-sm font-medium text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500" />
@@ -252,11 +311,11 @@ export default function DenPage() {
                   <article key={roar.id} className="rounded-[2rem] border border-zinc-800 bg-zinc-950 p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-center gap-4">
-                        <Avatar />
+                        <Avatar profile={profile} />
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-black">Kodiak</p>
-                            <p className="text-sm text-zinc-500">@kodiak</p>
+                            <p className="font-black">{profile.displayName}</p>
+                            <p className="text-sm text-zinc-500">{profile.handle}</p>
                             <p className="text-sm text-zinc-600">- {roar.time}</p>
                             {roar.editedAt ? <p className="text-sm text-zinc-600">- edited {roar.editedAt}</p> : null}
                           </div>
@@ -304,7 +363,7 @@ export default function DenPage() {
                           {roar.comments.length === 0 ? <p className="text-sm font-bold text-zinc-500">No comments yet.</p> : null}
                           {roar.comments.map((comment) => (
                             <div key={comment.id} className="rounded-2xl bg-zinc-950 p-4 ring-1 ring-zinc-800">
-                              <p className="text-sm font-black">Kodiak <span className="font-bold text-zinc-600">- {comment.time}</span></p>
+                              <p className="text-sm font-black">{profile.displayName} <span className="font-bold text-zinc-600">- {comment.time}</span></p>
                               <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-300">{comment.text}</p>
                             </div>
                           ))}
