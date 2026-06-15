@@ -9,6 +9,7 @@ type ProfileVisibility = "Public" | "Pack only" | "Private";
 const profileStorageKey = "kodiak-den-local-profile";
 const accountStorageKey = "kodiak-den-account";
 const sessionStorageKey = "kodiak-den-session";
+const legacyRoarsStorageKey = "kodiak-den-local-roars";
 
 function cleanHandle(value: string) {
   const cleaned = value.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9_@-]/g, "");
@@ -48,6 +49,9 @@ export default function CreateDenPage() {
       bannerImage: null,
     };
 
+    window.localStorage.removeItem(legacyRoarsStorageKey);
+    window.localStorage.setItem(`kodiak-den-roars:${cleanedHandle}`, "[]");
+    window.localStorage.setItem(`kodiak-den-profile:${cleanedHandle}`, JSON.stringify(profile));
     window.localStorage.setItem(profileStorageKey, JSON.stringify(profile));
     window.localStorage.setItem(accountStorageKey, JSON.stringify({ email: accountEmail, handle: cleanedHandle }));
     window.localStorage.setItem(sessionStorageKey, JSON.stringify({ signedInAt: new Date().toISOString(), handle: cleanedHandle }));
