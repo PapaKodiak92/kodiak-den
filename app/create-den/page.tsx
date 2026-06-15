@@ -8,12 +8,22 @@ type ProfileVisibility = "Public" | "Pack only" | "Private";
 
 const profileStorageKey = "kodiak-den-local-profile";
 const accountStorageKey = "kodiak-den-account";
-const sessionStorageKey = "kodiak-den-session";
 const legacyRoarsStorageKey = "kodiak-den-local-roars";
+const inboxKey = "kodiak-den-security-inbox";
 
 function cleanHandle(value: string) {
   const cleaned = value.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9_@-]/g, "");
   return cleaned ? (cleaned.startsWith("@") ? cleaned : `@${cleaned}`) : "@kodiak";
+}
+
+function strongEnough(value: string) {
+  return value.length >= 12 && /[a-z]/.test(value) && /[A-Z]/.test(value) && /[0-9]/.test(value) && /[^A-Za-z0-9]/.test(value);
+}
+
+function makeCode() {
+  const values = new Uint32Array(1);
+  window.crypto.getRandomValues(values);
+  return String(values[0] % 1_000_000).padStart(6, "0");
 }
 
 export default function CreateDenPage() {
@@ -35,10 +45,11 @@ export default function CreateDenPage() {
     const accountEmail = email.trim().toLowerCase();
 
     if (!name) return setError("Add a display name for your Den.");
-    if (!accountEmail.includes("@")) return setError("Use a valid email address.");
-    if (password.length < 8) return setError("Use at least 8 characters for your password.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail)) return setError("Use a valid email address.");
+    if (!strongEnough(password)) return setError("Use 12+ characters with uppercase, lowercase, number, and symbol.");
     if (password !== confirmPassword) return setError("Passwords do not match.");
 
+    const verificationCode = makeCode();
     const profile = {
       displayName: name.slice(0, 40),
       handle: cleanedHandle,
@@ -53,10 +64,21 @@ export default function CreateDenPage() {
     window.localStorage.setItem(`kodiak-den-roars:${cleanedHandle}`, "[]");
     window.localStorage.setItem(`kodiak-den-profile:${cleanedHandle}`, JSON.stringify(profile));
     window.localStorage.setItem(profileStorageKey, JSON.stringify(profile));
-    window.localStorage.setItem(accountStorageKey, JSON.stringify({ email: accountEmail, handle: cleanedHandle }));
-    window.localStorage.setItem(sessionStorageKey, JSON.stringify({ signedInAt: new Date().toISOString(), handle: cleanedHandle }));
+    window.localStorage.setItem(
+      accountStorageKey,
+      JSON.stringify({
+        email: accountEmail,
+        handle: cleanedHandle,
+        displayName: name.slice(0, 40),
+        emailVerified: false,
+        verificationCode,
+        verificationExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+        createdAt: new Date().toISOString(),
+      }),
+    );
+    window.sessionStorage.setItem(inboxKey, JSON.stringify({ kind: "verify", code: verificationCode, email: accountEmail }));
 
-    router.push("/my-den");
+    router.push("/verify-email");
   }
 
   return (
@@ -68,7 +90,7 @@ export default function CreateDenPage() {
           </Link>
           <h1 className="mt-6 text-5xl font-black tracking-tight sm:text-6xl">Create Your Den.</h1>
           <p className="mt-5 max-w-xl text-base leading-8 text-zinc-400">
-            Claim your name, choose your handle, and set the first privacy default for your profile.
+            Claim your name, choose your handle, and verify your email before your Den opens.
           </p>
         </div>
 
@@ -109,6 +131,7 @@ export default function CreateDenPage() {
             </label>
           </div>
 
+          <p className="mt-4 text-xs leading-5 text-zinc-500">Use 12+ characters with uppercase, lowercase, number, and symbol.</p>
           {error ? <p className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300">{error}</p> : null}
 
           <button className="mt-6 w-full rounded-2xl bg-amber-500 px-6 py-4 text-sm font-black text-zinc-950 transition hover:bg-amber-400">
