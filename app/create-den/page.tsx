@@ -4,15 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import {
-  accountStorageKey,
   cleanHandle,
   createCredential,
   legacyRoarsStorageKey,
   passwordAllowed,
   profileStorageKey,
-  securityInboxKey,
   writeAccount,
 } from "../../lib/localAuth";
+import { sendSecurityCodeEmail } from "../../lib/securityEmail";
 
 type ProfileVisibility = "Public" | "Pack only" | "Private";
 
@@ -60,11 +59,7 @@ export default function CreateDenPage() {
         bannerImage: null,
       };
 
-      window.localStorage.removeItem(legacyRoarsStorageKey);
-      window.localStorage.setItem(`kodiak-den-roars:${cleanedHandle}`, "[]");
-      window.localStorage.setItem(`kodiak-den-profile:${cleanedHandle}`, JSON.stringify(profile));
-      window.localStorage.setItem(profileStorageKey, JSON.stringify(profile));
-      writeAccount({
+      const account = {
         email: accountEmail,
         handle: cleanedHandle,
         displayName: name.slice(0, 40),
@@ -75,8 +70,24 @@ export default function CreateDenPage() {
         verificationExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
         failedSignInAttempts: 0,
         createdAt: new Date().toISOString(),
+      };
+
+      window.localStorage.removeItem(legacyRoarsStorageKey);
+      window.localStorage.setItem(`kodiak-den-roars:${cleanedHandle}`, "[]");
+      window.localStorage.setItem(`kodiak-den-profile:${cleanedHandle}`, JSON.stringify(profile));
+      window.localStorage.setItem(profileStorageKey, JSON.stringify(profile));
+      writeAccount(account);
+
+      const emailResult = await sendSecurityCodeEmail({
+        email: accountEmail,
+        code: verificationCode,
+        kind: "verify",
       });
-      window.sessionStorage.setItem(securityInboxKey, JSON.stringify({ kind: "verify", code: verificationCode, email: accountEmail }));
+
+      if (!emailResult.ok) {
+        setError(`Account created, but verification email failed: ${emailResult.error}`);
+        return;
+      }
 
       router.push("/verify-email");
     } finally {
