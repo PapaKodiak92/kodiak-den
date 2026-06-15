@@ -3,20 +3,23 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import {
-  accountIsLocked,
-  clearSignedInSession,
-  identifierMatches,
-  issueEmailVerification,
-  lockoutText,
-  readAccount,
-  setSignedInSession,
-  verifyCredential,
-  writeAccount,
-} from "../../lib/localAuth";
+import { clearSignedInSession, setSignedInSession, writeAccount } from "../../lib/localAuth";
 
-const maxFailedSignInAttempts = 5;
-const lockoutMinutes = 10;
+type SignInResponse = {
+  account?: {
+    email: string;
+    handle: string;
+    displayName: string;
+    emailVerified?: boolean;
+    failedSignInAttempts?: number;
+    lockedUntil?: string;
+    createdAt?: string;
+  };
+  error?: string;
+  code?: string;
+};
+
+const pendingVerificationKey = "kodiak-den-pending-verification";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -33,69 +36,32 @@ export default function SignInPage() {
     try {
       const user = identifier.trim();
 
-      if (!user) {
-        setError("Enter your email or handle.");
-        return;
-      }
+      if (!user) return setError("Enter your email or handle.");
+      if (!password) return setError("Enter your password.");
 
-      if (!password) {
-        setError("Enter your password.");
-        return;
-      }
+      const response = await fetch("/api/auth/sign-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: user, password }),
+      });
+      const result = (await response.json()) as SignInResponse;
 
-      const account = readAccount();
-
-      if (!account || !identifierMatches(account, user)) {
+      if (!response.ok || !result.account) {
         clearSignedInSession();
-        setError("Email, handle, or password is incorrect.");
+
+        if (result.code === "EMAIL_UNVERIFIED" && result.account?.email) {
+          writeAccount(result.account);
+          window.localStorage.setItem(pendingVerificationKey, result.account.email);
+          router.push("/verify-email");
+          return;
+        }
+
+        setError(result.error || "Email, handle, or password is incorrect.");
         return;
       }
 
-      if (accountIsLocked(account)) {
-        clearSignedInSession();
-        setError(lockoutText(account));
-        return;
-      }
-
-      const passwordMatches = await verifyCredential(account, password);
-
-      if (!passwordMatches) {
-        const failedSignInAttempts = (account.failedSignInAttempts ?? 0) + 1;
-        const lockedUntil =
-          failedSignInAttempts >= maxFailedSignInAttempts
-            ? new Date(Date.now() + lockoutMinutes * 60_000).toISOString()
-            : undefined;
-
-        writeAccount({
-          ...account,
-          failedSignInAttempts,
-          lockedUntil,
-        });
-
-        clearSignedInSession();
-        setError(
-          lockedUntil
-            ? `Too many failed attempts. Try again in ${lockoutMinutes} minutes.`
-            : "Email, handle, or password is incorrect.",
-        );
-        return;
-      }
-
-      if (!account.emailVerified) {
-        issueEmailVerification(account);
-        clearSignedInSession();
-        router.push("/verify-email");
-        return;
-      }
-
-      const unlockedAccount = {
-        ...account,
-        failedSignInAttempts: 0,
-        lockedUntil: undefined,
-      };
-
-      writeAccount(unlockedAccount);
-      setSignedInSession(unlockedAccount);
+      writeAccount(result.account);
+      setSignedInSession(result.account);
       router.push("/den");
     } finally {
       setBusy(false);
