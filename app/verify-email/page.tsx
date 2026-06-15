@@ -2,40 +2,26 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
-
-const accountStorageKey = "kodiak-den-account";
-const sessionStorageKey = "kodiak-den-session";
-const inboxKey = "kodiak-den-security-inbox";
-
-function readAccount() {
-  try {
-    const saved = window.localStorage.getItem(accountStorageKey);
-    return saved ? (JSON.parse(saved) as { email?: string; handle?: string; emailVerified?: boolean; verificationCode?: string; verificationExpiresAt?: string }) : null;
-  } catch {
-    return null;
-  }
-}
-
-function readCode() {
-  try {
-    const saved = window.sessionStorage.getItem(inboxKey);
-    return saved ? (JSON.parse(saved) as { kind?: string; code?: string; email?: string }) : null;
-  } catch {
-    return null;
-  }
-}
+import { FormEvent, useEffect, useState } from "react";
+import { LocalAccount, makeCode, readAccount, setSignedInSession, writeAccount } from "../../lib/localAuth";
+import { sendSecurityCodeEmail } from "../../lib/securityEmail";
 
 export default function VerifyEmailPage() {
   const router = useRouter();
-  const account = useMemo(() => (typeof window === "undefined" ? null : readAccount()), []);
-  const inbox = useMemo(() => (typeof window === "undefined" ? null : readCode()), []);
+  const [account, setAccount] = useState<LocalAccount | null>(null);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setAccount(readAccount());
+  }, []);
 
   function verify(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setStatus("");
 
     const current = readAccount();
     if (!current?.handle || !current?.email) return setError("Create your Den first.");
@@ -43,21 +29,46 @@ export default function VerifyEmailPage() {
     if (current.verificationExpiresAt && Date.now() > new Date(current.verificationExpiresAt).getTime()) return setError("That verification code expired. Send a new code.");
 
     const verified = { ...current, emailVerified: true, verificationCode: undefined, verificationExpiresAt: undefined };
-    window.localStorage.setItem(accountStorageKey, JSON.stringify(verified));
-    window.localStorage.setItem(sessionStorageKey, JSON.stringify({ signedInAt: new Date().toISOString(), handle: current.handle }));
-    window.sessionStorage.removeItem(inboxKey);
+    writeAccount(verified);
+    setSignedInSession(verified);
     router.push("/my-den");
   }
 
-  function resend() {
-    const current = readAccount();
-    if (!current?.email) return setError("Create your Den first.");
-    const nextCode = String(Math.floor(100000 + Math.random() * 900000));
-    const updated = { ...current, verificationCode: nextCode, verificationExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString() };
-    window.localStorage.setItem(accountStorageKey, JSON.stringify(updated));
-    window.sessionStorage.setItem(inboxKey, JSON.stringify({ kind: "verify", code: nextCode, email: current.email }));
+  async function resend() {
     setError("");
-    window.location.reload();
+    setStatus("");
+    setBusy(true);
+
+    try {
+      const current = readAccount();
+      if (!current?.email) return setError("Create your Den first.");
+
+      const nextCode = makeCode();
+      const updated = {
+        ...current,
+        emailVerified: false,
+        verificationCode: nextCode,
+        verificationExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+      };
+
+      writeAccount(updated);
+      setAccount(updated);
+
+      const emailResult = await sendSecurityCodeEmail({
+        email: updated.email,
+        code: nextCode,
+        kind: "verify",
+      });
+
+      if (!emailResult.ok) {
+        setError(emailResult.error || "Could not send verification email.");
+        return;
+      }
+
+      setStatus("A new verification code has been sent.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -69,19 +80,17 @@ export default function VerifyEmailPage() {
           <p className="mt-4 max-w-2xl text-sm leading-6 text-zinc-400">
             Enter the six-digit code sent to {account?.email ?? "your email"} before opening your Den.
           </p>
-          {inbox?.kind === "verify" && inbox.code ? (
-            <div className="mt-5 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-black text-amber-200">
-              Verification code: {inbox.code}
-            </div>
-          ) : null}
           <label className="mt-6 block space-y-2">
             <span className="text-xs font-black uppercase tracking-[0.22em] text-zinc-500">Verification code</span>
             <input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-bold tracking-[0.35em] outline-none focus:border-amber-500" />
           </label>
+          {status ? <p className="mt-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-300">{status}</p> : null}
           {error ? <p className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300">{error}</p> : null}
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             <button className="rounded-2xl bg-amber-500 px-6 py-4 text-sm font-black text-zinc-950 transition hover:bg-amber-400">Verify Email</button>
-            <button type="button" onClick={resend} className="rounded-2xl border border-zinc-800 px-6 py-4 text-sm font-black text-zinc-200 transition hover:border-amber-500/40 hover:text-amber-300">Send New Code</button>
+            <button type="button" disabled={busy} onClick={resend} className="rounded-2xl border border-zinc-800 px-6 py-4 text-sm font-black text-zinc-200 transition hover:border-amber-500/40 hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-60">
+              {busy ? "Sending..." : "Send New Code"}
+            </button>
           </div>
         </form>
       </section>
