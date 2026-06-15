@@ -27,8 +27,12 @@ export function cleanHandle(value: string) {
   return cleaned ? (cleaned.startsWith("@") ? cleaned : `@${cleaned}`) : "@kodiak";
 }
 
+export function passwordAllowed(value: string) {
+  return value.length >= 6;
+}
+
 export function strongEnough(value: string) {
-  return value.length >= 12 && /[a-z]/.test(value) && /[A-Z]/.test(value) && /[0-9]/.test(value) && /[^A-Za-z0-9]/.test(value);
+  return passwordAllowed(value);
 }
 
 function toHex(values: Uint8Array) {
