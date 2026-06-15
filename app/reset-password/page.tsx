@@ -1,16 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
-import { clearSignedInSession, createCredential, readAccount, writeAccount } from "../../lib/localAuth";
+import { FormEvent, useEffect, useState } from "react";
+import { clearSignedInSession } from "../../lib/localAuth";
+
+type ResetPasswordResponse = {
+  error?: string;
+};
+
+const pendingResetKey = "kodiak-den-pending-reset";
 
 export default function ResetPasswordPage() {
+  const [identifier, setIdentifier] = useState("");
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setIdentifier(window.localStorage.getItem(pendingResetKey) || "");
+  }, []);
 
   async function reset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -19,25 +30,26 @@ export default function ResetPasswordPage() {
     setBusy(true);
 
     try {
-      const account = readAccount();
-      if (!account) return setMessage("No account was found on this device.");
+      const value = identifier.trim();
+      if (!value) return setMessage("Enter your email or handle.");
       if (code.trim().length !== 6) return setMessage("Enter the six-digit reset code.");
-      if (!account.resetCode || account.resetCode !== code.trim()) return setMessage("That reset code does not match.");
-      if (account.resetExpiresAt && Date.now() > new Date(account.resetExpiresAt).getTime()) return setMessage("That reset code expired. Request a new one.");
       if (newPassword.length < 6) return setMessage("Use at least 6 characters.");
       if (newPassword !== confirmPassword) return setMessage("Passwords do not match.");
 
-      const { credentialHash, credentialSalt } = await createCredential(newPassword);
-      writeAccount({
-        ...account,
-        credentialHash,
-        credentialSalt,
-        resetCode: undefined,
-        resetExpiresAt: undefined,
-        failedSignInAttempts: 0,
-        lockedUntil: undefined,
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: value, code, password: newPassword }),
       });
+      const result = (await response.json()) as ResetPasswordResponse;
+
+      if (!response.ok) {
+        setMessage(result.error || "Could not reset your password.");
+        return;
+      }
+
       clearSignedInSession();
+      window.localStorage.removeItem(pendingResetKey);
       setSuccess(true);
       setMessage("Your password has been reset. You can sign in now.");
     } finally {
@@ -53,17 +65,21 @@ export default function ResetPasswordPage() {
           <h1 className="mt-6 text-4xl font-black tracking-tight">Choose a new password.</h1>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-zinc-400">Enter the reset code and choose a new password for your account.</p>
           <label className="mt-6 block space-y-2">
+            <span className="text-xs font-black uppercase tracking-[0.22em] text-zinc-500">Email or handle</span>
+            <input value={identifier} onChange={(event) => setIdentifier(event.target.value)} className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-bold outline-none focus:border-amber-500" />
+          </label>
+          <label className="mt-4 block space-y-2">
             <span className="text-xs font-black uppercase tracking-[0.22em] text-zinc-500">Reset code</span>
             <input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-bold tracking-[0.35em] outline-none focus:border-amber-500" />
           </label>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <label className="space-y-2">
               <span className="text-xs font-black uppercase tracking-[0.22em] text-zinc-500">New password</span>
-              <input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-bold outline-none focus:border-amber-500" />
+              <input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-bold outline-none focus:border-amber-500" />
             </label>
             <label className="space-y-2">
               <span className="text-xs font-black uppercase tracking-[0.22em] text-zinc-500">Confirm password</span>
-              <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-bold outline-none focus:border-amber-500" />
+              <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-bold outline-none focus:border-amber-500" />
             </label>
           </div>
           <p className="mt-4 text-xs leading-5 text-zinc-500">Password must be at least 6 characters.</p>
