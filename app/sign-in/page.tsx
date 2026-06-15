@@ -4,7 +4,22 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
+const accountStorageKey = "kodiak-den-account";
 const sessionStorageKey = "kodiak-den-session";
+
+function cleanHandle(value: string) {
+  const cleaned = value.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9_@-]/g, "");
+  return cleaned ? (cleaned.startsWith("@") ? cleaned : `@${cleaned}`) : "@kodiak";
+}
+
+function readAccount() {
+  try {
+    const saved = window.localStorage.getItem(accountStorageKey);
+    return saved ? (JSON.parse(saved) as { email?: string; handle?: string }) : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function SignInPage() {
   const router = useRouter();
@@ -18,9 +33,12 @@ export default function SignInPage() {
     const user = identifier.trim();
     if (!user) return setError("Enter your email or handle.");
 
+    const account = readAccount();
+    const handle = account?.email?.toLowerCase() === user.toLowerCase() && account.handle ? cleanHandle(account.handle) : cleanHandle(user);
+
     window.localStorage.setItem(
       sessionStorageKey,
-      JSON.stringify({ signedInAt: new Date().toISOString(), identifier: user }),
+      JSON.stringify({ signedInAt: new Date().toISOString(), handle }),
     );
 
     router.push("/den");
