@@ -62,11 +62,14 @@ export default function Home() {
           <KodiakBrand />
 
           <div className="hidden items-center gap-3 sm:flex">
-            <button className="rounded-full border border-zinc-800 px-5 py-2 text-sm font-bold text-zinc-200 transition hover:border-amber-500 hover:text-amber-300">
-              Sign In
-            </button>
             <Link
-              href="/my-den"
+              href="/sign-in"
+              className="rounded-full border border-zinc-800 px-5 py-2 text-sm font-bold text-zinc-200 transition hover:border-amber-500 hover:text-amber-300"
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/create-den"
               className="rounded-full bg-amber-500 px-5 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-400"
             >
               Create Your Den
