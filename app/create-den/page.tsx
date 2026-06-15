@@ -26,6 +26,18 @@ function makeCode() {
   return String(values[0] % 1_000_000).padStart(6, "0");
 }
 
+function makeSalt() {
+  const values = new Uint8Array(16);
+  window.crypto.getRandomValues(values);
+  return Array.from(values).map((value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+async function makeDigest(secret: string, salt: string) {
+  const data = new TextEncoder().encode(`${salt}:${secret}`);
+  const digest = await window.crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, "0")).join("");
+}
+
 export default function CreateDenPage() {
   const router = useRouter();
   const [displayName, setDisplayName] = useState("Kodiak");
@@ -35,50 +47,61 @@ export default function CreateDenPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [profileVisibility, setProfileVisibility] = useState<ProfileVisibility>("Public");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function createDen(event: FormEvent<HTMLFormElement>) {
+  async function createDen(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setBusy(true);
 
-    const name = displayName.trim();
-    const cleanedHandle = cleanHandle(handle);
-    const accountEmail = email.trim().toLowerCase();
+    try {
+      const name = displayName.trim();
+      const cleanedHandle = cleanHandle(handle);
+      const accountEmail = email.trim().toLowerCase();
 
-    if (!name) return setError("Add a display name for your Den.");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail)) return setError("Use a valid email address.");
-    if (!strongEnough(password)) return setError("Use 12+ characters with uppercase, lowercase, number, and symbol.");
-    if (password !== confirmPassword) return setError("Passwords do not match.");
+      if (!name) return setError("Add a display name for your Den.");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail)) return setError("Use a valid email address.");
+      if (!strongEnough(password)) return setError("Use 12+ characters with uppercase, lowercase, number, and symbol.");
+      if (password !== confirmPassword) return setError("Passwords do not match.");
 
-    const verificationCode = makeCode();
-    const profile = {
-      displayName: name.slice(0, 40),
-      handle: cleanedHandle,
-      bio: "Building my Den on Kodiak Den.",
-      bannerStyle: "Pine Ridge",
-      profileVisibility,
-      avatarImage: null,
-      bannerImage: null,
-    };
-
-    window.localStorage.removeItem(legacyRoarsStorageKey);
-    window.localStorage.setItem(`kodiak-den-roars:${cleanedHandle}`, "[]");
-    window.localStorage.setItem(`kodiak-den-profile:${cleanedHandle}`, JSON.stringify(profile));
-    window.localStorage.setItem(profileStorageKey, JSON.stringify(profile));
-    window.localStorage.setItem(
-      accountStorageKey,
-      JSON.stringify({
-        email: accountEmail,
-        handle: cleanedHandle,
+      const verificationCode = makeCode();
+      const credentialSalt = makeSalt();
+      const credentialHash = await makeDigest(password, credentialSalt);
+      const profile = {
         displayName: name.slice(0, 40),
-        emailVerified: false,
-        verificationCode,
-        verificationExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
-        createdAt: new Date().toISOString(),
-      }),
-    );
-    window.sessionStorage.setItem(inboxKey, JSON.stringify({ kind: "verify", code: verificationCode, email: accountEmail }));
+        handle: cleanedHandle,
+        bio: "Building my Den on Kodiak Den.",
+        bannerStyle: "Pine Ridge",
+        profileVisibility,
+        avatarImage: null,
+        bannerImage: null,
+      };
 
-    router.push("/verify-email");
+      window.localStorage.removeItem(legacyRoarsStorageKey);
+      window.localStorage.setItem(`kodiak-den-roars:${cleanedHandle}`, "[]");
+      window.localStorage.setItem(`kodiak-den-profile:${cleanedHandle}`, JSON.stringify(profile));
+      window.localStorage.setItem(profileStorageKey, JSON.stringify(profile));
+      window.localStorage.setItem(
+        accountStorageKey,
+        JSON.stringify({
+          email: accountEmail,
+          handle: cleanedHandle,
+          displayName: name.slice(0, 40),
+          credentialHash,
+          credentialSalt,
+          emailVerified: false,
+          verificationCode,
+          verificationExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+          failedSignInAttempts: 0,
+          createdAt: new Date().toISOString(),
+        }),
+      );
+      window.sessionStorage.setItem(inboxKey, JSON.stringify({ kind: "verify", code: verificationCode, email: accountEmail }));
+
+      router.push("/verify-email");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -134,8 +157,8 @@ export default function CreateDenPage() {
           <p className="mt-4 text-xs leading-5 text-zinc-500">Use 12+ characters with uppercase, lowercase, number, and symbol.</p>
           {error ? <p className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300">{error}</p> : null}
 
-          <button className="mt-6 w-full rounded-2xl bg-amber-500 px-6 py-4 text-sm font-black text-zinc-950 transition hover:bg-amber-400">
-            Create Your Den
+          <button disabled={busy} className="mt-6 w-full rounded-2xl bg-amber-500 px-6 py-4 text-sm font-black text-zinc-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60">
+            {busy ? "Creating Your Den..." : "Create Your Den"}
           </button>
 
           <p className="mt-5 text-center text-sm font-bold text-zinc-500">
