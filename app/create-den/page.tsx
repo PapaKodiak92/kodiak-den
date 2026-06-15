@@ -5,21 +5,28 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import {
   cleanHandle,
-  createCredential,
   legacyRoarsStorageKey,
   passwordAllowed,
   profileStorageKey,
   writeAccount,
 } from "../../lib/localAuth";
-import { sendSecurityCodeEmail } from "../../lib/securityEmail";
 
 type ProfileVisibility = "Public" | "Pack only" | "Private";
 
-function makeCode() {
-  const values = new Uint32Array(1);
-  window.crypto.getRandomValues(values);
-  return String(values[0] % 1_000_000).padStart(6, "0");
-}
+type AccountResponse = {
+  account?: {
+    email: string;
+    handle: string;
+    displayName: string;
+    emailVerified?: boolean;
+    failedSignInAttempts?: number;
+    lockedUntil?: string;
+    createdAt?: string;
+  };
+  error?: string;
+};
+
+const pendingVerificationKey = "kodiak-den-pending-verification";
 
 export default function CreateDenPage() {
   const router = useRouter();
@@ -47,11 +54,27 @@ export default function CreateDenPage() {
       if (!passwordAllowed(password)) return setError("Use at least 6 characters.");
       if (password !== confirmPassword) return setError("Passwords do not match.");
 
-      const verificationCode = makeCode();
-      const { credentialHash, credentialSalt } = await createCredential(password);
+      const response = await fetch("/api/auth/create-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          displayName: name,
+          handle: cleanedHandle,
+          email: accountEmail,
+          password,
+          profileVisibility,
+        }),
+      });
+      const result = (await response.json()) as AccountResponse;
+
+      if (!response.ok || !result.account) {
+        setError(result.error || "Could not create your Den.");
+        return;
+      }
+
       const profile = {
-        displayName: name.slice(0, 40),
-        handle: cleanedHandle,
+        displayName: result.account.displayName,
+        handle: result.account.handle,
         bio: "Building my Den on Kodiak Den.",
         bannerStyle: "Pine Ridge",
         profileVisibility,
@@ -59,35 +82,12 @@ export default function CreateDenPage() {
         bannerImage: null,
       };
 
-      const account = {
-        email: accountEmail,
-        handle: cleanedHandle,
-        displayName: name.slice(0, 40),
-        credentialHash,
-        credentialSalt,
-        emailVerified: false,
-        verificationCode,
-        verificationExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
-        failedSignInAttempts: 0,
-        createdAt: new Date().toISOString(),
-      };
-
       window.localStorage.removeItem(legacyRoarsStorageKey);
-      window.localStorage.setItem(`kodiak-den-roars:${cleanedHandle}`, "[]");
-      window.localStorage.setItem(`kodiak-den-profile:${cleanedHandle}`, JSON.stringify(profile));
+      window.localStorage.setItem(`kodiak-den-roars:${result.account.handle}`, "[]");
+      window.localStorage.setItem(`kodiak-den-profile:${result.account.handle}`, JSON.stringify(profile));
       window.localStorage.setItem(profileStorageKey, JSON.stringify(profile));
-      writeAccount(account);
-
-      const emailResult = await sendSecurityCodeEmail({
-        email: accountEmail,
-        code: verificationCode,
-        kind: "verify",
-      });
-
-      if (!emailResult.ok) {
-        setError(`Account created, but verification email failed: ${emailResult.error}`);
-        return;
-      }
+      window.localStorage.setItem(pendingVerificationKey, result.account.email);
+      writeAccount(result.account);
 
       router.push("/verify-email");
     } finally {
@@ -122,17 +122,17 @@ export default function CreateDenPage() {
 
             <label className="space-y-2 sm:col-span-2">
               <span className="text-xs font-black uppercase tracking-[0.22em] text-zinc-500">Email</span>
-              <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-bold outline-none focus:border-amber-500" />
+              <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-bold outline-none focus:border-amber-500" />
             </label>
 
             <label className="space-y-2">
               <span className="text-xs font-black uppercase tracking-[0.22em] text-zinc-500">Password</span>
-              <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-bold outline-none focus:border-amber-500" />
+              <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-bold outline-none focus:border-amber-500" />
             </label>
 
             <label className="space-y-2">
               <span className="text-xs font-black uppercase tracking-[0.22em] text-zinc-500">Confirm password</span>
-              <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-bold outline-none focus:border-amber-500" />
+              <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-bold outline-none focus:border-amber-500" />
             </label>
 
             <label className="space-y-2 sm:col-span-2">
